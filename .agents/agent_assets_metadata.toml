@@ -1,0 +1,38 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "r0bweevfGBdtBHGaETE-b"
+uri = "file://artifacts/mobile/assets/images/icon.png"
+type = "image"
+title = "reels app icon"
+
+[[generated]]
+id = "WcSK3fEGSSAsHefYT3nPm"
+uri = "file://artifacts/mobile/assets/images/reel1.png"
+type = "image"
+title = "reel dance"
+
+[[generated]]
+id = "-R7A7ojVbMRelAK3Wl3Ji"
+uri = "file://artifacts/mobile/assets/images/reel2.png"
+type = "image"
+title = "reel cooking"
+
+[[generated]]
+id = "04d_1QjDSajtylrqHRHRZ"
+uri = "file://artifacts/mobile/assets/images/reel3.png"
+type = "image"
+title = "reel skating"
+
+[[generated]]
+id = "JZnvi788qchfMgZN9SXtK"
+uri = "file://artifacts/mobile/assets/images/reel4.png"
+type = "image"
+title = "reel travel"
+
+[[generated]]
+id = "IXj8e-aWhuR2Pu0RPd8bq"
+uri = "file://artifacts/mobile/assets/images/reel5.png"
+type = "image"
+title = "reel fashion"
