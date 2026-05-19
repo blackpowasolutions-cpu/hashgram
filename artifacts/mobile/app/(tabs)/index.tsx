@@ -7,6 +7,7 @@ import {
   FlatList,
   Image,
   ImageSourcePropType,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -15,8 +16,6 @@ import {
   ViewToken,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-import { useAuth } from "@/context/AuthContext";
 
 const { width, height } = Dimensions.get("window");
 
@@ -102,8 +101,7 @@ function formatCount(n: number): string {
   return n.toString();
 }
 
-function ReelItem({ item, isVisible }: { item: Reel; isVisible: boolean }) {
-  const insets = useSafeAreaInsets();
+function ReelItem({ item, bottomPad }: { item: Reel; bottomPad: number }) {
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(item.likes);
   const [heartVisible, setHeartVisible] = useState(false);
@@ -131,9 +129,6 @@ function ReelItem({ item, isVisible }: { item: Reel; isVisible: boolean }) {
     lastTap.current = now;
   }, [liked]);
 
-  const bottomPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
-  const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
-
   return (
     <Pressable style={[styles.reel, { height }]} onPress={handleDoubleTap}>
       <Image source={item.image} style={styles.reelBg} resizeMode="cover" />
@@ -144,7 +139,7 @@ function ReelItem({ item, isVisible }: { item: Reel; isVisible: boolean }) {
       />
 
       {heartVisible && (
-        <View style={styles.heartOverlay} pointerEvents="none">
+        <View style={[styles.heartOverlay, { pointerEvents: "none" }]}>
           <Feather name="heart" size={80} color="#FE2C55" />
         </View>
       )}
@@ -199,10 +194,9 @@ function ReelItem({ item, isVisible }: { item: Reel; isVisible: boolean }) {
   );
 }
 
-import { Platform } from "react-native";
-
 export default function FeedScreen() {
   const insets = useSafeAreaInsets();
+  const bottomPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
   const [visibleId, setVisibleId] = useState<string>(REELS[0].id);
 
   const onViewableItemsChanged = useCallback(
@@ -218,8 +212,12 @@ export default function FeedScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header overlay */}
-      <View style={[styles.header, { paddingTop: insets.top + (Platform.OS === "web" ? 67 : 8) }]}>
+      <View
+        style={[
+          styles.header,
+          { paddingTop: insets.top + (Platform.OS === "web" ? 67 : 8) },
+        ]}
+      >
         <TouchableOpacity activeOpacity={0.7}>
           <Text style={styles.headerTab}>Following</Text>
         </TouchableOpacity>
@@ -234,9 +232,7 @@ export default function FeedScreen() {
       <FlatList
         data={REELS}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <ReelItem item={item} isVisible={item.id === visibleId} />
-        )}
+        renderItem={({ item }) => <ReelItem item={item} bottomPad={bottomPad} />}
         pagingEnabled
         snapToInterval={height}
         decelerationRate="fast"
@@ -335,9 +331,6 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 12,
     fontFamily: "Inter_600SemiBold",
-    textShadowColor: "rgba(0,0,0,0.5)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
   },
   musicDisc: {
     width: 46,
@@ -369,18 +362,12 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontFamily: "Inter_700Bold",
-    textShadowColor: "rgba(0,0,0,0.5)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
   },
   description: {
     color: "rgba(255,255,255,0.9)",
     fontSize: 14,
     fontFamily: "Inter_400Regular",
     lineHeight: 20,
-    textShadowColor: "rgba(0,0,0,0.5)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
   },
   musicRow: {
     flexDirection: "row",

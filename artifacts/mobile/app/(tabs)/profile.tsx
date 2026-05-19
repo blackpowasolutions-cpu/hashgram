@@ -3,8 +3,6 @@ import * as Haptics from "expo-haptics";
 import React, { useState } from "react";
 import {
   Dimensions,
-  FlatList,
-  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -13,22 +11,117 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { Circle, Svg } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import ScratchCard, { GiftCardPrize, PRIZES } from "@/components/ScratchCard";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 
 const { width } = Dimensions.get("window");
-const THUMB_SIZE = (width - 3) / 3;
+const GAP = 1.5;
+const THUMB_SIZE = (width - GAP * 2) / 3;
 
-const GRID_ITEMS = [
-  { id: "1", image: require("../../assets/images/reel1.png"), likes: "482K", views: "2.1M" },
-  { id: "2", image: require("../../assets/images/reel2.png"), likes: "271K", views: "980K" },
-  { id: "3", image: require("../../assets/images/reel3.png"), likes: "893K", views: "4.2M" },
-  { id: "4", image: require("../../assets/images/reel4.png"), likes: "1.2M", views: "8.9M" },
-  { id: "5", image: require("../../assets/images/reel5.png"), likes: "567K", views: "3.4M" },
-  { id: "6", image: require("../../assets/images/reel1.png"), likes: "320K", views: "1.5M" },
+const PLAY_MILESTONE = 100;
+
+interface ReelGridItem {
+  id: string;
+  title: string;
+  plays: number;
+  scratchUsed: boolean;
+  prize: GiftCardPrize;
+}
+
+const INITIAL_REELS: ReelGridItem[] = [
+  { id: "1", title: "Dance Drop", plays: 67, scratchUsed: false, prize: PRIZES[0] },
+  { id: "2", title: "Street Food", plays: 45, scratchUsed: false, prize: PRIZES[1] },
+  { id: "3", title: "Sk8 Trick", plays: 100, scratchUsed: false, prize: PRIZES[2] },
+  { id: "4", title: "Mountain View", plays: 23, scratchUsed: false, prize: PRIZES[3] },
+  { id: "5", title: "GRWM", plays: 89, scratchUsed: false, prize: PRIZES[4] },
+  { id: "6", title: "Night Vlog", plays: 12, scratchUsed: false, prize: PRIZES[5] },
 ];
+
+// Thumbnail images matched by id
+const THUMB_IMAGES: Record<string, ReturnType<typeof require>> = {
+  "1": require("../../assets/images/reel1.png"),
+  "2": require("../../assets/images/reel2.png"),
+  "3": require("../../assets/images/reel3.png"),
+  "4": require("../../assets/images/reel4.png"),
+  "5": require("../../assets/images/reel5.png"),
+  "6": require("../../assets/images/reel1.png"),
+};
+
+import { Image } from "react-native";
+
+// Circular SVG progress ring
+function PlayRing({
+  plays,
+  milestone,
+  size = 36,
+}: {
+  plays: number;
+  milestone: number;
+  size?: number;
+}) {
+  const progress = Math.min(plays / milestone, 1);
+  const radius = (size - 4) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDash = circumference * progress;
+  const isComplete = progress >= 1;
+
+  return (
+    <Svg width={size} height={size} style={{ transform: [{ rotate: "-90deg" }] }}>
+      {/* Track */}
+      <Circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        stroke="rgba(0,0,0,0.55)"
+        strokeWidth={3}
+        fill="transparent"
+      />
+      {/* Progress arc */}
+      <Circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        stroke={isComplete ? "#FFD700" : "#FE2C55"}
+        strokeWidth={3}
+        fill="transparent"
+        strokeDasharray={`${strokeDash} ${circumference}`}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+function TilePlayIndicator({
+  reel,
+  onTap,
+}: {
+  reel: ReelGridItem;
+  onTap: () => void;
+}) {
+  const isComplete = reel.plays >= PLAY_MILESTONE;
+  const isUsed = reel.scratchUsed;
+
+  if (isUsed) return null;
+
+  return (
+    <Pressable onPress={isComplete ? onTap : undefined} style={styles.ringWrap}>
+      <PlayRing plays={reel.plays} milestone={PLAY_MILESTONE} size={36} />
+      {isComplete ? (
+        <View style={styles.ringCenter}>
+          <Text style={{ fontSize: 13 }}>🎁</Text>
+        </View>
+      ) : (
+        <View style={styles.ringCenter}>
+          <Text style={styles.ringCount}>{reel.plays}</Text>
+        </View>
+      )}
+    </Pressable>
+  );
+}
 
 function formatCount(n: number): string {
   if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
@@ -40,18 +133,43 @@ export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+
   const [activeTab, setActiveTab] = useState<"posts" | "liked">("posts");
-  const [following, setFollowing] = useState(false);
+  const [reels, setReels] = useState<ReelGridItem[]>(INITIAL_REELS);
+  const [scratchTarget, setScratchTarget] = useState<ReelGridItem | null>(null);
 
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const bottomPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
 
-  const avatarColor = "#FE2C55";
-
-  const handleFollow = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setFollowing((v) => !v);
+  const handleTilePress = (reel: ReelGridItem) => {
+    if (reel.plays >= PLAY_MILESTONE && !reel.scratchUsed) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setScratchTarget(reel);
+    } else {
+      // Simulate a play being added each tap (for demo)
+      setReels((prev) =>
+        prev.map((r) =>
+          r.id === reel.id
+            ? { ...r, plays: Math.min(r.plays + 1, PLAY_MILESTONE) }
+            : r
+        )
+      );
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
   };
+
+  const handleScratchClose = () => {
+    if (scratchTarget) {
+      setReels((prev) =>
+        prev.map((r) =>
+          r.id === scratchTarget.id ? { ...r, scratchUsed: true } : r
+        )
+      );
+    }
+    setScratchTarget(null);
+  };
+
+  const completedCount = reels.filter((r) => r.plays >= PLAY_MILESTONE && !r.scratchUsed).length;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -74,12 +192,11 @@ export default function ProfileScreen() {
 
         {/* Avatar + Stats */}
         <View style={styles.profileSection}>
-          <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
+          <View style={[styles.avatar, { backgroundColor: "#FE2C55" }]}>
             <Text style={styles.avatarText}>
               {(user?.displayName ?? "U")[0].toUpperCase()}
             </Text>
           </View>
-
           <View style={styles.statsRow}>
             <View style={styles.stat}>
               <Text style={[styles.statNum, { color: colors.foreground }]}>
@@ -111,6 +228,28 @@ export default function ProfileScreen() {
             {user?.bio ?? "Creating awesome content every day 🎬"}
           </Text>
         </View>
+
+        {/* Scratch cards banner */}
+        {completedCount > 0 && (
+          <Pressable
+            style={[styles.scratchBanner, { backgroundColor: "rgba(255,215,0,0.08)", borderColor: "#FFD700" }]}
+            onPress={() => {
+              const ready = reels.find((r) => r.plays >= PLAY_MILESTONE && !r.scratchUsed);
+              if (ready) setScratchTarget(ready);
+            }}
+          >
+            <Text style={styles.scratchBannerEmoji}>🎁</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.scratchBannerTitle}>
+                {completedCount} Scratch Card{completedCount > 1 ? "s" : ""} Ready!
+              </Text>
+              <Text style={styles.scratchBannerSub}>
+                Tap a glowing tile or here to reveal your prize
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={18} color="#FFD700" />
+          </Pressable>
+        )}
 
         {/* Action Buttons */}
         <View style={styles.actionRow}>
@@ -152,27 +291,93 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Grid legend */}
+        <View style={[styles.legend, { backgroundColor: colors.muted }]}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: "#FE2C55" }]} />
+            <Text style={[styles.legendText, { color: colors.mutedForeground }]}>Play progress</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: "#FFD700" }]} />
+            <Text style={[styles.legendText, { color: colors.mutedForeground }]}>Scratch card ready</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <Text style={[styles.legendText, { color: colors.mutedForeground }]}>Tap tile to add plays</Text>
+          </View>
+        </View>
+
         {/* Grid */}
         <View style={styles.grid}>
-          {GRID_ITEMS.map((item) => (
-            <Pressable key={item.id} style={styles.thumb} android_ripple={{ color: "#333" }}>
-              <Image source={item.image} style={styles.thumbImg} resizeMode="cover" />
-              <View style={styles.thumbOverlay}>
-                <Feather name="play" size={12} color="#fff" />
-                <Text style={styles.thumbViews}>{item.views}</Text>
-              </View>
-            </Pressable>
-          ))}
+          {reels.map((reel) => {
+            const isComplete = reel.plays >= PLAY_MILESTONE;
+            const isUsed = reel.scratchUsed;
+            return (
+              <Pressable
+                key={reel.id}
+                style={[
+                  styles.thumb,
+                  isComplete && !isUsed && styles.thumbGlow,
+                ]}
+                onPress={() => handleTilePress(reel)}
+                android_ripple={{ color: "#333" }}
+              >
+                <Image
+                  source={THUMB_IMAGES[reel.id]}
+                  style={styles.thumbImg}
+                  resizeMode="cover"
+                />
+
+                {/* Dark overlay */}
+                <View style={styles.thumbDark} />
+
+                {/* Play count ring — bottom-left */}
+                <TilePlayIndicator reel={reel} onTap={() => setScratchTarget(reel)} />
+
+                {/* Play count label */}
+                <View style={styles.thumbBottom}>
+                  <Feather name="play" size={10} color="rgba(255,255,255,0.8)" />
+                  <Text style={styles.thumbViews}>
+                    {reel.plays >= PLAY_MILESTONE ? "100" : reel.plays}
+                    <Text style={styles.thumbMilestone}>/100</Text>
+                  </Text>
+                </View>
+
+                {/* Used stamp */}
+                {isUsed && (
+                  <View style={styles.usedBadge}>
+                    <Text style={styles.usedText}>✓ Claimed</Text>
+                  </View>
+                )}
+
+                {/* Glow border for ready tiles */}
+                {isComplete && !isUsed && (
+                  <View style={[styles.glowBorder, { pointerEvents: "none" }]} />
+                )}
+              </Pressable>
+            );
+          })}
         </View>
+
+        <Text style={[styles.tapHint, { color: colors.mutedForeground }]}>
+          Tap any tile to simulate a reel play. At 100 plays, a scratch card unlocks!
+        </Text>
       </ScrollView>
+
+      {/* Scratch Card Modal */}
+      {scratchTarget && (
+        <ScratchCard
+          visible={!!scratchTarget}
+          prize={scratchTarget.prize}
+          reelTitle={scratchTarget.title}
+          onClose={handleScratchClose}
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -208,31 +413,37 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-around",
   },
-  stat: {
-    alignItems: "center",
-    gap: 2,
-  },
-  statNum: {
-    fontSize: 18,
-    fontFamily: "Inter_700Bold",
-  },
-  statLabel: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-  },
+  stat: { alignItems: "center", gap: 2 },
+  statNum: { fontSize: 18, fontFamily: "Inter_700Bold" },
+  statLabel: { fontSize: 12, fontFamily: "Inter_400Regular" },
   bioSection: {
     paddingHorizontal: 16,
     paddingTop: 12,
     gap: 4,
   },
-  displayName: {
-    fontSize: 16,
+  displayName: { fontSize: 16, fontFamily: "Inter_700Bold" },
+  bio: { fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 20 },
+  scratchBanner: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  scratchBannerEmoji: { fontSize: 24 },
+  scratchBannerTitle: {
+    color: "#FFD700",
+    fontSize: 14,
     fontFamily: "Inter_700Bold",
   },
-  bio: {
-    fontSize: 14,
+  scratchBannerSub: {
+    color: "rgba(255,215,0,0.6)",
+    fontSize: 12,
     fontFamily: "Inter_400Regular",
-    lineHeight: 20,
+    marginTop: 2,
   },
   actionRow: {
     flexDirection: "row",
@@ -248,10 +459,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  editBtnText: {
-    fontSize: 14,
-    fontFamily: "Inter_600SemiBold",
-  },
+  editBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   addBtn: {
     width: 36,
     height: 36,
@@ -273,37 +481,109 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     borderBottomColor: "transparent",
   },
-  tabItemActive: {
-    borderBottomColor: "#fff",
+  tabItemActive: { borderBottomColor: "#fff" },
+  legend: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginHorizontal: 0,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
+  legendItem: { flexDirection: "row", alignItems: "center", gap: 4 },
+  legendDot: { width: 8, height: 8, borderRadius: 4 },
+  legendText: { fontSize: 11, fontFamily: "Inter_400Regular" },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 1.5,
+    gap: GAP,
   },
   thumb: {
     width: THUMB_SIZE,
     height: THUMB_SIZE * 1.4,
     backgroundColor: "#111",
+    position: "relative",
+    overflow: "hidden",
+  },
+  thumbGlow: {
+    borderWidth: 2,
+    borderColor: "#FFD700",
   },
   thumbImg: {
     width: "100%",
     height: "100%",
   },
-  thumbOverlay: {
+  thumbDark: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.15)",
+  },
+  ringWrap: {
     position: "absolute",
-    bottom: 6,
+    top: 5,
+    left: 5,
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ringCenter: {
+    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ringCount: {
+    color: "#fff",
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
+    textShadow: "0 1px 2px rgba(0,0,0,0.8)",
+  },
+  thumbBottom: {
+    position: "absolute",
+    bottom: 5,
     left: 6,
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 3,
   },
   thumbViews: {
     color: "#fff",
-    fontSize: 12,
-    fontFamily: "Inter_600SemiBold",
-    textShadowColor: "rgba(0,0,0,0.8)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
+    textShadow: "0 1px 3px rgba(0,0,0,0.9)",
+  },
+  thumbMilestone: {
+    color: "rgba(255,255,255,0.55)",
+    fontSize: 9,
+    fontFamily: "Inter_400Regular",
+  },
+  usedBadge: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  usedText: {
+    color: "#6BCB77",
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.5,
+  },
+  glowBorder: {
+    ...StyleSheet.absoluteFillObject,
+    borderWidth: 2,
+    borderColor: "#FFD700",
+    borderRadius: 0,
+  },
+  tapHint: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 4,
   },
 });
