@@ -140,8 +140,7 @@ function ReelItem({ item, isVisible }: { item: Reel; isVisible: boolean }) {
       <LinearGradient
         colors={["transparent", "rgba(0,0,0,0.5)", "rgba(0,0,0,0.92)"]}
         locations={[0.4, 0.7, 1]}
-        style={styles.gradient}
-        pointerEvents="none"
+        style={[styles.gradient, { pointerEvents: "none" }]}
       />
 
       {heartVisible && (
