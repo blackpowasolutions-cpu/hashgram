@@ -42,7 +42,7 @@ const INITIAL_REELS: ReelGridItem[] = [
 ];
 
 // Thumbnail images matched by id
-const THUMB_IMAGES: Record<string, ReturnType<typeof require>> = {
+const THUMB_IMAGES: Record<string, number> = {
   "1": require("../../assets/images/reel1.png"),
   "2": require("../../assets/images/reel2.png"),
   "3": require("../../assets/images/reel3.png"),
@@ -535,7 +535,6 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 9,
     fontFamily: "Inter_700Bold",
-    textShadow: "0 1px 2px rgba(0,0,0,0.8)",
   },
   thumbBottom: {
     position: "absolute",
@@ -549,7 +548,6 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 11,
     fontFamily: "Inter_700Bold",
-    textShadow: "0 1px 3px rgba(0,0,0,0.9)",
   },
   thumbMilestone: {
     color: "rgba(255,255,255,0.55)",

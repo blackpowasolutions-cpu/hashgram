@@ -17,6 +17,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "house", selected: "house.fill" }} />
         <Label>Home</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="feed">
+        <Icon sf={{ default: "newspaper", selected: "newspaper.fill" }} />
+        <Label>Feed</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="leaderboard">
         <Icon sf={{ default: "trophy", selected: "trophy.fill" }} />
         <Label>Ranks</Label>
@@ -74,6 +78,17 @@ function ClassicTabLayout() {
               <SymbolView name="house.fill" tintColor={color} size={24} />
             ) : (
               <Feather name="home" size={24} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="feed"
+        options={{
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="newspaper.fill" tintColor={color} size={24} />
+            ) : (
+              <Feather name="rss" size={24} color={color} />
             ),
         }}
       />

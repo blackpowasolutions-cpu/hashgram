@@ -401,7 +401,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Inter_700Bold",
     letterSpacing: 1,
-    textShadow: "0 1px 4px rgba(0,0,0,0.5)",
   },
   particle: {
     position: "absolute",
