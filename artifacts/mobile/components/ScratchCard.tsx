@@ -223,7 +223,7 @@ export default function ScratchCard({ visible, prize, reelTitle, onClose }: Prop
                   ))}
                 </View>
               ))}
-              <View style={[styles.scratchHintRow, { pointerEvents: "none" }]}>
+              <View style={[styles.scratchHintRow, { pointerEvents: "none" } as any]}>
                 <Animated.View style={{ transform: [{ translateX: shimmerX }] }}>
                   <Text style={styles.scratchHint}>← SCRATCH HERE →</Text>
                 </Animated.View>
