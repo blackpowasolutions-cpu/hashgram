@@ -148,6 +148,8 @@ function GiftSurpriseCard({ item, bottomPad }: { item: GiftItem; bottomPad: numb
 
   const shakeX = shakeAnim.interpolate({ inputRange: [-1, 1], outputRange: [-14, 14] });
 
+  if (!item.prize) return null;
+
   return (
     <View style={[styles.reel, { height, backgroundColor: "#0a0a0a" }]}>
       <LinearGradient
@@ -386,8 +388,9 @@ export default function FeedScreen() {
     reels.forEach((reel, i) => {
       result.push(reel);
       if ((i + 1) % 4 === 0) {
-        const prize = GIFT_PRIZES[(i / 4) % GIFT_PRIZES.length];
-        result.push({ type: "gift", id: `gift_${i}`, prize });
+        const prizeIndex = Math.floor(i / 4) % GIFT_PRIZES.length;
+        const prize = GIFT_PRIZES[prizeIndex];
+        if (prize) result.push({ type: "gift", id: `gift_${i}`, prize });
       }
     });
     return result;
