@@ -3,6 +3,7 @@ import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
+import { ResizeMode, Video } from "expo-av";
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   Animated,
@@ -38,7 +39,8 @@ interface Reel {
   comments: number;
   shares: number;
   views: number;
-  image: ImageSourcePropType;
+  image?: ImageSourcePropType;
+  videoUri?: string;
   music: string;
   avatarColor: string;
 }
@@ -217,7 +219,7 @@ function GiftSurpriseCard({ item, bottomPad }: { item: GiftItem; bottomPad: numb
 
 // ─── Reel Item ────────────────────────────────────────────────────────────────
 
-function ReelItem({ item, bottomPad }: { item: Reel; bottomPad: number }) {
+function ReelItem({ item, bottomPad, isActive }: { item: Reel; bottomPad: number; isActive: boolean }) {
   const { user } = useAuth();
   const { isFollowing, toggleFollow } = useSocial();
   const [liked, setLiked] = useState(false);
@@ -256,7 +258,20 @@ function ReelItem({ item, bottomPad }: { item: Reel; bottomPad: number }) {
 
   return (
     <Pressable style={[styles.reel, { height }]} onPress={handleDoubleTap}>
-      <Image source={item.image} style={styles.reelBg} resizeMode="cover" />
+      {item.videoUri && Platform.OS !== "web" ? (
+        <Video
+          source={{ uri: item.videoUri }}
+          style={styles.reelBg}
+          resizeMode={ResizeMode.COVER}
+          shouldPlay={isActive}
+          isLooping
+          isMuted={false}
+        />
+      ) : item.image ? (
+        <Image source={item.image} style={styles.reelBg} resizeMode="cover" />
+      ) : (
+        <View style={[styles.reelBg, { backgroundColor: "#111" }]} />
+      )}
       <LinearGradient
         colors={["transparent", "rgba(0,0,0,0.5)", "rgba(0,0,0,0.92)"]}
         locations={[0.4, 0.7, 1]}
@@ -363,6 +378,7 @@ export default function FeedScreen() {
   const totalUnread = conversations.reduce((s, c) => s + c.unreadCount, 0);
   const [reels, setReels] = useState<Reel[]>(REELS);
   const [uploadToast, setUploadToast] = useState(false);
+  const [activeId, setActiveId] = useState<string>(REELS[0]?.id ?? "");
 
   // Build feed: inject a gift surprise card after every 4th reel
   const listData = useMemo<ListItem[]>(() => {
@@ -379,8 +395,10 @@ export default function FeedScreen() {
 
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      // Could track analytics here
-    }, []
+      const first = viewableItems.find((v) => v.isViewable && !isGift(v.item));
+      if (first) setActiveId(first.item.id);
+    },
+    [setActiveId]
   );
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 80 });
@@ -390,10 +408,9 @@ export default function FeedScreen() {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") return;
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.All,
-        allowsEditing: true,
-        aspect: [9, 16],
-        quality: 0.8,
+        mediaTypes: ["videos"],
+        videoMaxDuration: 60,
+        quality: 1,
       });
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
@@ -407,7 +424,7 @@ export default function FeedScreen() {
           comments: 0,
           shares: 0,
           views: 0,
-          image: { uri: asset.uri },
+          videoUri: asset.uri,
           music: "Original Sound",
           avatarColor: "#FF6B9D",
         };
@@ -470,7 +487,7 @@ export default function FeedScreen() {
         renderItem={({ item }) =>
           isGift(item)
             ? <GiftSurpriseCard item={item} bottomPad={bottomPad} />
-            : <ReelItem item={item} bottomPad={bottomPad} />
+            : <ReelItem item={item} bottomPad={bottomPad} isActive={item.id === activeId} />
         }
         pagingEnabled
         snapToInterval={height}
@@ -560,7 +577,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(76,175,80,0.4)",
   },
-  toastText: { color: "#fff", fontSize: 13, fontFamily: "Inter_500Medium" ?? "Inter_600SemiBold" },
+  toastText: { color: "#fff", fontSize: 13, fontFamily: "Inter_500Medium" },
 
   // Reel
   reel: { width, backgroundColor: "#000" },
