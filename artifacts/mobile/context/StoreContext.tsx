@@ -5,10 +5,10 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 
 export const LEVEL_THRESHOLDS = [
   { level: 1, minPoints: 0,     label: "Bronze",   color: "#CD7F32", next: 1000   },
-  { level: 2, minPoints: 1000,  label: "Silver",   color: "#A8A9AD", next: 3000   },
-  { level: 3, minPoints: 3000,  label: "Gold",     color: "#FFD700", next: 6000   },
-  { level: 4, minPoints: 6000,  label: "Platinum", color: "#E0E0E0", next: 10000  },
-  { level: 5, minPoints: 10000, label: "Diamond",  color: "#B9F2FF", next: null   },
+  { level: 2, minPoints: 1000,  label: "Silver",   color: "#A8A9AD", next: 5000   },
+  { level: 3, minPoints: 5000,  label: "Gold",     color: "#FFD700", next: 8000   },
+  { level: 4, minPoints: 8000,  label: "Platinum", color: "#E5E4E2", next: 12000  },
+  { level: 5, minPoints: 12000, label: "Diamond",  color: "#B9F2FF", next: null   },
 ] as const;
 
 export function getUserLevel(points: number) {
