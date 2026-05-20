@@ -3,20 +3,31 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Reels App API
+
 servers:
   - url: /api
     description: Base API path
+
 tags:
   - name: health
-    description: Health operations
+  - name: auth
+  - name: users
+  - name: reels
+  - name: posts
+  - name: store
+  - name: leaderboard
+  - name: messages
+  - name: admin
+  - name: storage
+
 paths:
+  # ── Health ───────────────────────────────────────────────────────────────────
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +35,1475 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── Auth ─────────────────────────────────────────────────────────────────────
+  /auth/register:
+    post:
+      operationId: registerUser
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "409":
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: loginUser
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  # ── Users ────────────────────────────────────────────────────────────────────
+  /users/{id}:
+    get:
+      operationId: getUser
+      tags: [users]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    patch:
+      operationId: updateUser
+      tags: [users]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+    delete:
+      operationId: deleteUser
+      tags: [users]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /users/{id}/follow:
+    post:
+      operationId: followUser
+      tags: [users]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Followed
+
+    delete:
+      operationId: unfollowUser
+      tags: [users]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Unfollowed
+
+  /users/{id}/followers:
+    get:
+      operationId: getUserFollowers
+      tags: [users]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserPublic"
+
+  /users/{id}/following:
+    get:
+      operationId: getUserFollowing
+      tags: [users]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserPublic"
+
+  /users/{id}/reels:
+    get:
+      operationId: getUserReels
+      tags: [users]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Reel"
+
+  /users/{id}/posts:
+    get:
+      operationId: getUserPosts
+      tags: [users]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Post"
+
+  # ── Reels ────────────────────────────────────────────────────────────────────
+  /reels:
+    get:
+      operationId: listReels
+      tags: [reels]
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: userId
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReelList"
+
+    post:
+      operationId: createReel
+      tags: [reels]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReelInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reel"
+
+  /reels/{id}:
+    get:
+      operationId: getReel
+      tags: [reels]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reel"
+
+    delete:
+      operationId: deleteReel
+      tags: [reels]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /reels/{id}/like:
+    post:
+      operationId: likeReel
+      tags: [reels]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Liked
+
+    delete:
+      operationId: unlikeReel
+      tags: [reels]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Unliked
+
+  /reels/{id}/view:
+    post:
+      operationId: viewReel
+      tags: [reels]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Recorded
+
+  # ── Posts ────────────────────────────────────────────────────────────────────
+  /posts:
+    get:
+      operationId: listPosts
+      tags: [posts]
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostList"
+
+    post:
+      operationId: createPost
+      tags: [posts]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+
+  /posts/{id}:
+    delete:
+      operationId: deletePost
+      tags: [posts]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /posts/{id}/react:
+    post:
+      operationId: reactToPost
+      tags: [posts]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReactionInput"
+      responses:
+        "204":
+          description: Reacted
+
+    delete:
+      operationId: removePostReaction
+      tags: [posts]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Removed
+
+  # ── Store ────────────────────────────────────────────────────────────────────
+  /store/cards:
+    get:
+      operationId: listGiftCards
+      tags: [store]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GiftCard"
+
+    post:
+      operationId: createGiftCard
+      tags: [store]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GiftCardInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GiftCard"
+
+  /store/cards/{id}:
+    patch:
+      operationId: updateGiftCard
+      tags: [store]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GiftCardUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GiftCard"
+
+    delete:
+      operationId: deleteGiftCard
+      tags: [store]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /store/purchase:
+    post:
+      operationId: purchaseGiftCard
+      tags: [store]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PurchaseInput"
+      responses:
+        "201":
+          description: Purchased
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Purchase"
+        "400":
+          description: Insufficient points
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /store/purchases:
+    get:
+      operationId: listPurchases
+      tags: [store]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Purchase"
+
+  /store/balance:
+    get:
+      operationId: getPointsBalance
+      tags: [store]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PointsBalance"
+
+  /store/award:
+    post:
+      operationId: awardPoints
+      tags: [store]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PointsAward"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PointsBalance"
+
+  # ── Leaderboard ──────────────────────────────────────────────────────────────
+  /leaderboard:
+    get:
+      operationId: getLeaderboard
+      tags: [leaderboard]
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [daily, weekly, alltime]
+            default: alltime
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeaderboardEntry"
+
+  # ── Messages ─────────────────────────────────────────────────────────────────
+  /messages/conversations:
+    get:
+      operationId: listConversations
+      tags: [messages]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Conversation"
+
+  /messages/conversations/{id}:
+    get:
+      operationId: getConversationMessages
+      tags: [messages]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Message"
+
+    post:
+      operationId: sendMessage
+      tags: [messages]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MessageInput"
+      responses:
+        "201":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+
+  # ── Admin ────────────────────────────────────────────────────────────────────
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+
+  /admin/users:
+    get:
+      operationId: listAdminUsers
+      tags: [admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: search
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: suspended
+          in: query
+          schema:
+            type: ["boolean", "null"]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserList"
+
+  /admin/users/{id}/suspend:
+    patch:
+      operationId: suspendUser
+      tags: [admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SuspendInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserItem"
+
+  /admin/users/{id}/role:
+    patch:
+      operationId: updateUserRole
+      tags: [admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserItem"
+
+  /admin/users/{id}/points:
+    patch:
+      operationId: adjustUserPoints
+      tags: [admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PointsAdjust"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PointsBalance"
+
+  /admin/reels:
+    get:
+      operationId: listAdminReels
+      tags: [admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReelList"
+
+  /admin/posts:
+    get:
+      operationId: listAdminPosts
+      tags: [admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostList"
+
+  # ── Storage ──────────────────────────────────────────────────────────────────
+  /storage/uploads/request-url:
+    post:
+      operationId: requestUploadUrl
+      tags: [storage]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadResponse"
+
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
         status:
           type: string
-      required:
-        - status
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    # ── Auth ───────────────────────────────────────────────────────────────────
+    RegisterInput:
+      type: object
+      required: [username, displayName, email, password]
+      properties:
+        username:
+          type: string
+          minLength: 3
+        displayName:
+          type: string
+          minLength: 1
+        email:
+          type: string
+        password:
+          type: string
+          minLength: 8
+
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      required: [token, user]
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+
+    # ── Users ──────────────────────────────────────────────────────────────────
+    User:
+      type: object
+      required: [id, username, displayName, email, role, isActive, isSuspended, points, createdAt]
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        displayName:
+          type: string
+        email:
+          type: string
+        avatarUrl:
+          type: ["string", "null"]
+        bio:
+          type: ["string", "null"]
+        website:
+          type: ["string", "null"]
+        role:
+          type: string
+        isActive:
+          type: boolean
+        isSuspended:
+          type: boolean
+        points:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    UserPublic:
+      type: object
+      required: [id, username, displayName]
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        displayName:
+          type: string
+        avatarUrl:
+          type: ["string", "null"]
+        bio:
+          type: ["string", "null"]
+
+    UserProfile:
+      type: object
+      required: [id, username, displayName, followersCount, followingCount, reelsCount, postsCount]
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        displayName:
+          type: string
+        avatarUrl:
+          type: ["string", "null"]
+        bio:
+          type: ["string", "null"]
+        website:
+          type: ["string", "null"]
+        followersCount:
+          type: integer
+        followingCount:
+          type: integer
+        reelsCount:
+          type: integer
+        postsCount:
+          type: integer
+        isFollowing:
+          type: boolean
+
+    UserUpdate:
+      type: object
+      properties:
+        displayName:
+          type: string
+        bio:
+          type: ["string", "null"]
+        website:
+          type: ["string", "null"]
+        avatarUrl:
+          type: ["string", "null"]
+
+    # ── Reels ──────────────────────────────────────────────────────────────────
+    Reel:
+      type: object
+      required: [id, userId, views, likesCount, createdAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        user:
+          $ref: "#/components/schemas/UserPublic"
+        description:
+          type: ["string", "null"]
+        mediaUrl:
+          type: ["string", "null"]
+        thumbnailUrl:
+          type: ["string", "null"]
+        views:
+          type: integer
+        likesCount:
+          type: integer
+        music:
+          type: ["string", "null"]
+        likedByMe:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    ReelInput:
+      type: object
+      properties:
+        description:
+          type: ["string", "null"]
+        mediaUrl:
+          type: ["string", "null"]
+        thumbnailUrl:
+          type: ["string", "null"]
+        music:
+          type: ["string", "null"]
+
+    ReelList:
+      type: object
+      required: [items, total, page, limit]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Reel"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    # ── Posts ──────────────────────────────────────────────────────────────────
+    Post:
+      type: object
+      required: [id, userId, content, createdAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        user:
+          $ref: "#/components/schemas/UserPublic"
+        content:
+          type: string
+        mediaUrl:
+          type: ["string", "null"]
+        reactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReactionSummary"
+        myReaction:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    PostInput:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+        mediaUrl:
+          type: ["string", "null"]
+
+    PostList:
+      type: object
+      required: [items, total, page, limit]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Post"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    ReactionInput:
+      type: object
+      required: [emoji]
+      properties:
+        emoji:
+          type: string
+
+    ReactionSummary:
+      type: object
+      required: [emoji, count]
+      properties:
+        emoji:
+          type: string
+        count:
+          type: integer
+
+    # ── Store ──────────────────────────────────────────────────────────────────
+    GiftCard:
+      type: object
+      required: [id, brand, category, value, pointsCost, minLevel, gradientFrom, gradientTo, emoji, description, isActive]
+      properties:
+        id:
+          type: integer
+        brand:
+          type: string
+        category:
+          type: string
+        value:
+          type: string
+        pointsCost:
+          type: integer
+        minLevel:
+          type: integer
+        gradientFrom:
+          type: string
+        gradientTo:
+          type: string
+        emoji:
+          type: string
+        description:
+          type: string
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    GiftCardInput:
+      type: object
+      required: [brand, category, value, pointsCost, minLevel, gradientFrom, gradientTo, emoji, description]
+      properties:
+        brand:
+          type: string
+        category:
+          type: string
+        value:
+          type: string
+        pointsCost:
+          type: integer
+        minLevel:
+          type: integer
+        gradientFrom:
+          type: string
+        gradientTo:
+          type: string
+        emoji:
+          type: string
+        description:
+          type: string
+
+    GiftCardUpdate:
+      type: object
+      properties:
+        brand:
+          type: string
+        category:
+          type: string
+        value:
+          type: string
+        pointsCost:
+          type: integer
+        minLevel:
+          type: integer
+        gradientFrom:
+          type: string
+        gradientTo:
+          type: string
+        emoji:
+          type: string
+        description:
+          type: string
+        isActive:
+          type: boolean
+
+    Purchase:
+      type: object
+      required: [id, userId, giftCardId, code, pointsSpent, createdAt]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        giftCardId:
+          type: integer
+        giftCard:
+          $ref: "#/components/schemas/GiftCard"
+        code:
+          type: string
+        pointsSpent:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    PurchaseInput:
+      type: object
+      required: [giftCardId]
+      properties:
+        giftCardId:
+          type: integer
+
+    PointsBalance:
+      type: object
+      required: [userId, balance, level]
+      properties:
+        userId:
+          type: integer
+        balance:
+          type: integer
+        level:
+          type: integer
+
+    PointsAward:
+      type: object
+      required: [userId, amount, reason]
+      properties:
+        userId:
+          type: integer
+        amount:
+          type: integer
+        reason:
+          type: string
+
+    PointsAdjust:
+      type: object
+      required: [amount, reason]
+      properties:
+        amount:
+          type: integer
+        reason:
+          type: string
+
+    # ── Leaderboard ────────────────────────────────────────────────────────────
+    LeaderboardEntry:
+      type: object
+      required: [rank, userId, points, level]
+      properties:
+        rank:
+          type: integer
+        userId:
+          type: integer
+        user:
+          $ref: "#/components/schemas/UserPublic"
+        points:
+          type: integer
+        level:
+          type: integer
+
+    # ── Messages ───────────────────────────────────────────────────────────────
+    Conversation:
+      type: object
+      required: [id, otherUser, unreadCount, createdAt]
+      properties:
+        id:
+          type: integer
+        otherUser:
+          $ref: "#/components/schemas/UserPublic"
+        lastMessage:
+          type: ["string", "null"]
+        lastMessageAt:
+          type: ["string", "null"]
+        unreadCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    Message:
+      type: object
+      required: [id, conversationId, senderId, content, createdAt]
+      properties:
+        id:
+          type: integer
+        conversationId:
+          type: integer
+        senderId:
+          type: integer
+        sender:
+          $ref: "#/components/schemas/UserPublic"
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        readAt:
+          type: ["string", "null"]
+
+    MessageInput:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+
+    # ── Admin ──────────────────────────────────────────────────────────────────
+    AdminStats:
+      type: object
+      required: [totalUsers, totalReels, totalPosts, totalGiftPurchases, totalPointsDistributed, newUsersToday, newUsersThisWeek]
+      properties:
+        totalUsers:
+          type: integer
+        totalReels:
+          type: integer
+        totalPosts:
+          type: integer
+        totalGiftPurchases:
+          type: integer
+        totalPointsDistributed:
+          type: integer
+        newUsersToday:
+          type: integer
+        newUsersThisWeek:
+          type: integer
+        topUsers:
+          type: array
+          items:
+            $ref: "#/components/schemas/LeaderboardEntry"
+
+    AdminUserItem:
+      type: object
+      required: [id, username, displayName, email, role, isActive, isSuspended, points, createdAt]
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        displayName:
+          type: string
+        email:
+          type: string
+        avatarUrl:
+          type: ["string", "null"]
+        role:
+          type: string
+        isActive:
+          type: boolean
+        isSuspended:
+          type: boolean
+        points:
+          type: integer
+        reelsCount:
+          type: integer
+        postsCount:
+          type: integer
+        followersCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    AdminUserList:
+      type: object
+      required: [items, total, page, limit]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminUserItem"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    SuspendInput:
+      type: object
+      required: [suspended]
+      properties:
+        suspended:
+          type: boolean
+        reason:
+          type: ["string", "null"]
+
+    RoleUpdate:
+      type: object
+      required: [role]
+      properties:
+        role:
+          type: string
+          enum: [user, admin]
+
+    # ── Storage ────────────────────────────────────────────────────────────────
+    UploadRequest:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name:
+          type: string
+        size:
+          type: integer
+        contentType:
+          type: string
+
+    UploadResponse:
+      type: object
+      required: [uploadURL, objectPath]
+      properties:
+        uploadURL:
+          type: string
+        objectPath:
+          type: string
 
