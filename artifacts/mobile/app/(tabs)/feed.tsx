@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/context/AuthContext";
 import type { User } from "@/context/AuthContext";
+import ScratchCard, { PRIZES, type GiftCardPrize } from "@/components/ScratchCard";
 import { useColors } from "@/hooks/useColors";
 
 const { width } = Dimensions.get("window");
@@ -80,7 +81,32 @@ interface Post {
   shares: number;
 }
 
+const LIKES_MILESTONE = 100;
+
 const INITIAL_POSTS: Post[] = [
+  // ── Own posts (user.id === "me") — scratch card progress visible ──────────
+  {
+    id: "own_1",
+    user: { id: "me", username: "@you", displayName: "You", avatarColor: "#FE2C55" },
+    content: "Just posted my first reel! 🎉 So excited to share this journey with everyone. Drop a ❤️ if you're rooting for me!",
+    image: require("../../assets/images/reel4.png"),
+    createdAt: "45 min ago",
+    reactions: { like: 67, love: 5, haha: 2, wow: 3, sad: 0, angry: 0 },
+    userReaction: null,
+    comments: 14,
+    shares: 6,
+  },
+  {
+    id: "own_2",
+    user: { id: "me", username: "@you", displayName: "You", avatarColor: "#FE2C55" },
+    content: "Can't believe this blew up! 🙌 Thank you for 100 likes on my last post. This community is absolutely everything 💕",
+    createdAt: "1 day ago",
+    reactions: { like: 100, love: 28, haha: 5, wow: 12, sad: 0, angry: 0 },
+    userReaction: null,
+    comments: 45,
+    shares: 22,
+  },
+  // ── Other users' posts ────────────────────────────────────────────────────
   {
     id: "1",
     user: { id: "2", username: "@sk8er_pro", displayName: "Sk8er Pro", avatarColor: "#6BCB77" },
@@ -168,6 +194,161 @@ function topReactions(r: PostReactions): ReactionType[] {
     .map(([k]) => k);
 }
 
+// ─── Likes Progress Bar ───────────────────────────────────────────────────────
+
+function LikesProgressBar({
+  likesCount,
+  isScratched,
+  scratchedPrize,
+  onTapReady,
+  colors,
+}: {
+  likesCount: number;
+  isScratched: boolean;
+  scratchedPrize: GiftCardPrize | null;
+  onTapReady: () => void;
+  colors: ReturnType<typeof useColors>;
+}) {
+  const progress = Math.min(likesCount, LIKES_MILESTONE) / LIKES_MILESTONE;
+  const isReady = likesCount >= LIKES_MILESTONE;
+
+  const barAnim = useRef(new Animated.Value(progress)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const glowAnim = useRef(new Animated.Value(0)).current;
+  const pulseLoop = useRef<Animated.CompositeAnimation | null>(null);
+
+  React.useEffect(() => {
+    Animated.spring(barAnim, {
+      toValue: Math.min(likesCount, LIKES_MILESTONE) / LIKES_MILESTONE,
+      tension: 80,
+      friction: 10,
+      useNativeDriver: false,
+    }).start();
+  }, [likesCount]);
+
+  React.useEffect(() => {
+    if (isReady && !isScratched) {
+      pulseLoop.current = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, { toValue: 1.04, duration: 600, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 0.97, duration: 600, useNativeDriver: true }),
+        ])
+      );
+      pulseLoop.current.start();
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(glowAnim, { toValue: 1, duration: 900, useNativeDriver: false }),
+          Animated.timing(glowAnim, { toValue: 0.3, duration: 900, useNativeDriver: false }),
+        ])
+      ).start();
+    } else {
+      pulseLoop.current?.stop();
+      pulseAnim.setValue(1);
+      glowAnim.setValue(0);
+    }
+  }, [isReady, isScratched]);
+
+  const barColor = barAnim.interpolate({
+    inputRange: [0, 0.99, 1],
+    outputRange: ["#FE2C55", "#FFA500", "#FFD700"],
+  });
+
+  // ── Claimed state ──
+  if (isScratched && scratchedPrize) {
+    return (
+      <View style={[styles.likesBar, { borderTopColor: colors.border }]}>
+        <View style={styles.likesBarHeader}>
+          <View style={styles.likesBarLeft}>
+            <Feather name="check-circle" size={13} color="#4CAF50" />
+            <Text style={[styles.likesBarLabel, { color: "#4CAF50" }]}>
+              Scratch card claimed!
+            </Text>
+          </View>
+          <View style={[styles.prizeChip, { backgroundColor: scratchedPrize.color + "22" }]}>
+            <Text style={[styles.prizeChipText, { color: scratchedPrize.color }]}>
+              {scratchedPrize.type} · {scratchedPrize.value}
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  // ── Ready to scratch ──
+  if (isReady) {
+    return (
+      <Animated.View style={[{ transform: [{ scale: pulseAnim }] }]}>
+        <TouchableOpacity
+          style={[
+            styles.likesBar,
+            styles.likesBarReady,
+            { borderTopColor: colors.border },
+          ]}
+          onPress={() => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            onTapReady();
+          }}
+          activeOpacity={0.85}
+        >
+          <Animated.View
+            style={[
+              StyleSheet.absoluteFill,
+              styles.likesBarReadyGlow,
+              { opacity: glowAnim },
+            ]}
+          />
+          <View style={styles.likesBarHeader}>
+            <View style={styles.likesBarLeft}>
+              <Text style={styles.likesBarGiftEmoji}>🎁</Text>
+              <View>
+                <Text style={styles.likesBarReadyTitle}>Scratch Card Ready!</Text>
+                <Text style={styles.likesBarReadyHint}>
+                  {likesCount} likes · Tap to reveal your prize
+                </Text>
+              </View>
+            </View>
+            <View style={styles.scratchArrow}>
+              <Feather name="chevron-right" size={18} color="#FFD700" />
+            </View>
+          </View>
+          {/* Full gold bar */}
+          <View style={[styles.likesTrack, { backgroundColor: "rgba(255,215,0,0.2)" }]}>
+            <View style={[styles.likesFill, { width: "100%", backgroundColor: "#FFD700" }]} />
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  }
+
+  // ── In progress ──
+  return (
+    <View style={[styles.likesBar, { borderTopColor: colors.border }]}>
+      <View style={styles.likesBarHeader}>
+        <View style={styles.likesBarLeft}>
+          <Text style={{ fontSize: 13 }}>❤️</Text>
+          <Text style={[styles.likesBarLabel, { color: colors.mutedForeground }]}>
+            {likesCount} / {LIKES_MILESTONE} likes
+          </Text>
+        </View>
+        <Text style={[styles.likesBarHint, { color: colors.mutedForeground }]}>
+          🎁 scratch card at {LIKES_MILESTONE}
+        </Text>
+      </View>
+      <View style={[styles.likesTrack, { backgroundColor: colors.muted }]}>
+        <Animated.View
+          style={[
+            styles.likesFill,
+            {
+              width: barAnim.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] }),
+              backgroundColor: barColor,
+            },
+          ]}
+        />
+      </View>
+    </View>
+  );
+}
+
 // ─── Reaction Picker ─────────────────────────────────────────────────────────
 
 function ReactionPicker({
@@ -229,10 +410,18 @@ function PostCard({
   post,
   onReact,
   colors,
+  isOwnPost,
+  isScratched,
+  scratchedPrize,
+  onScratchReady,
 }: {
   post: Post;
   onReact: (postId: string, reaction: ReactionType | null) => void;
   colors: ReturnType<typeof useColors>;
+  isOwnPost: boolean;
+  isScratched: boolean;
+  scratchedPrize: GiftCardPrize | null;
+  onScratchReady: () => void;
 }) {
   const [showPicker, setShowPicker] = useState(false);
   const likeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -294,6 +483,17 @@ function PostCard({
           source={typeof post.image === "string" ? { uri: post.image } : post.image}
           style={styles.cardImage}
           resizeMode="cover"
+        />
+      )}
+
+      {/* Likes progress bar — own posts only */}
+      {isOwnPost && (
+        <LikesProgressBar
+          likesCount={post.reactions.like}
+          isScratched={isScratched}
+          scratchedPrize={scratchedPrize}
+          onTapReady={onScratchReady}
+          colors={colors}
         />
       )}
 
@@ -508,6 +708,8 @@ export default function NewsFeedScreen() {
 
   const [posts, setPosts] = useState<Post[]>(INITIAL_POSTS);
   const [createVisible, setCreateVisible] = useState(false);
+  const [scratchTarget, setScratchTarget] = useState<{ post: Post; prize: GiftCardPrize } | null>(null);
+  const [scratchedMap, setScratchedMap] = useState<Record<string, GiftCardPrize>>({});
 
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const bottomPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
@@ -530,6 +732,19 @@ export default function NewsFeedScreen() {
       })
     );
   }, []);
+
+  const handleScratchReady = useCallback((post: Post) => {
+    const prize = PRIZES[Math.floor(Math.random() * PRIZES.length)];
+    setScratchTarget({ post, prize });
+  }, []);
+
+  const handleScratchClose = useCallback(() => {
+    if (scratchTarget) {
+      setScratchedMap((prev) => ({ ...prev, [scratchTarget.post.id]: scratchTarget.prize }));
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+    setScratchTarget(null);
+  }, [scratchTarget]);
 
   const handleCreatePost = useCallback((content: string, image: string | null) => {
     const newPost: Post = {
@@ -610,9 +825,20 @@ export default function NewsFeedScreen() {
       <FlatList
         data={posts}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <PostCard post={item} onReact={handleReact} colors={colors} />
-        )}
+        renderItem={({ item }) => {
+          const isOwn = item.user.id === "me";
+          return (
+            <PostCard
+              post={item}
+              onReact={handleReact}
+              colors={colors}
+              isOwnPost={isOwn}
+              isScratched={!!scratchedMap[item.id]}
+              scratchedPrize={scratchedMap[item.id] ?? null}
+              onScratchReady={() => handleScratchReady(item)}
+            />
+          );
+        }}
         ListHeaderComponent={ListHeader}
         ItemSeparatorComponent={() => (
           <View style={[styles.postSeparator, { backgroundColor: colors.muted }]} />
@@ -630,6 +856,15 @@ export default function NewsFeedScreen() {
         user={user}
         colors={colors}
       />
+
+      {scratchTarget && (
+        <ScratchCard
+          visible={!!scratchTarget}
+          prize={scratchTarget.prize}
+          reelTitle={scratchTarget.post.content.slice(0, 40) + "…"}
+          onClose={handleScratchClose}
+        />
+      )}
     </View>
   );
 }
@@ -823,6 +1058,76 @@ const styles = StyleSheet.create({
   actionBarLabel: {
     fontSize: 14,
     fontFamily: "Inter_500Medium",
+  },
+
+  // Likes progress bar
+  likesBar: {
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 6,
+  },
+  likesBarReady: {
+    backgroundColor: "rgba(255,215,0,0.06)",
+    overflow: "hidden",
+  },
+  likesBarReadyGlow: {
+    backgroundColor: "rgba(255,215,0,0.12)",
+    borderRadius: 0,
+  },
+  likesBarHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  likesBarLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flex: 1,
+  },
+  likesBarLabel: {
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+  },
+  likesBarHint: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+  },
+  likesBarGiftEmoji: {
+    fontSize: 22,
+  },
+  likesBarReadyTitle: {
+    color: "#FFD700",
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+  },
+  likesBarReadyHint: {
+    color: "rgba(255,215,0,0.7)",
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    marginTop: 1,
+  },
+  scratchArrow: {
+    marginLeft: 4,
+  },
+  likesTrack: {
+    height: 5,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  likesFill: {
+    height: 5,
+    borderRadius: 3,
+  },
+  prizeChip: {
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  prizeChipText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
   },
 
   // Reaction picker
