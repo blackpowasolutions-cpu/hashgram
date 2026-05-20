@@ -15,6 +15,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/context/AuthContext";
+import { MessagesProvider } from "@/context/MessagesContext";
 import { StoreProvider } from "@/context/StoreContext";
 
 SplashScreen.preventAutoHideAsync();
@@ -23,9 +24,11 @@ const queryClient = new QueryClient();
 
 function RootLayoutNav() {
   return (
-    <Stack screenOptions={{ headerBackTitle: "Back" }}>
+    <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="login" options={{ headerShown: false, animation: "fade" }} />
+      <Stack.Screen name="messages" options={{ headerShown: false, animation: "slide_from_right" }} />
+      <Stack.Screen name="chat/[userId]" options={{ headerShown: false, animation: "slide_from_right" }} />
     </Stack>
   );
 }
@@ -54,7 +57,9 @@ export default function RootLayout() {
             <KeyboardProvider>
               <AuthProvider>
                 <StoreProvider>
-                  <RootLayoutNav />
+                  <MessagesProvider>
+                    <RootLayoutNav />
+                  </MessagesProvider>
                 </StoreProvider>
               </AuthProvider>
             </KeyboardProvider>

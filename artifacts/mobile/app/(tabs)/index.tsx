@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import React, { useCallback, useRef, useState } from "react";
 import {
   Dimensions,
@@ -16,6 +17,8 @@ import {
   ViewToken,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { useMessages } from "@/context/MessagesContext";
 
 const { width, height } = Dimensions.get("window");
 
@@ -198,6 +201,8 @@ export default function FeedScreen() {
   const insets = useSafeAreaInsets();
   const bottomPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
   const [visibleId, setVisibleId] = useState<string>(REELS[0].id);
+  const { conversations } = useMessages();
+  const totalUnread = conversations.reduce((s, c) => s + c.unreadCount, 0);
 
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
@@ -226,6 +231,22 @@ export default function FeedScreen() {
         </TouchableOpacity>
         <TouchableOpacity activeOpacity={0.7}>
           <Feather name="search" size={22} color="#fff" />
+        </TouchableOpacity>
+
+        {/* DM Button */}
+        <TouchableOpacity
+          style={styles.dmBtn}
+          onPress={() => router.push("/messages")}
+          activeOpacity={0.7}
+        >
+          <Feather name="send" size={22} color="#fff" />
+          {totalUnread > 0 && (
+            <View style={styles.dmBadge}>
+              <Text style={styles.dmBadgeText}>
+                {totalUnread > 9 ? "9+" : totalUnread}
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -379,5 +400,27 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_400Regular",
     flex: 1,
+  },
+  dmBtn: {
+    position: "absolute",
+    right: 20,
+    bottom: 12,
+  },
+  dmBadge: {
+    position: "absolute",
+    top: -5,
+    right: -5,
+    backgroundColor: "#FE2C55",
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  dmBadgeText: {
+    color: "#fff",
+    fontSize: 9,
+    fontFamily: "Inter_700Bold",
   },
 });
