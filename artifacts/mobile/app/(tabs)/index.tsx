@@ -24,6 +24,7 @@ const { width, height } = Dimensions.get("window");
 
 interface Reel {
   id: string;
+  userId: string;
   user: string;
   displayName: string;
   description: string;
@@ -38,6 +39,7 @@ interface Reel {
 const REELS: Reel[] = [
   {
     id: "1",
+    userId: "1",
     user: "@dancequeen",
     displayName: "Dance Queen",
     description: "New choreography drop! This took 3 weeks to perfect 🔥 #dance #fyp #trending",
@@ -50,6 +52,7 @@ const REELS: Reel[] = [
   },
   {
     id: "2",
+    userId: "4",
     user: "@streetfoodking",
     displayName: "Street Food King",
     description: "Secret recipe my grandma taught me 👨‍🍳 The best noodles you'll ever taste #food #cooking",
@@ -62,6 +65,7 @@ const REELS: Reel[] = [
   },
   {
     id: "3",
+    userId: "2",
     user: "@sk8er_pro",
     displayName: "Sk8er Pro",
     description: "Landed this trick after 200 tries 🛹 Never give up on your dreams #skateboarding #sports",
@@ -74,6 +78,7 @@ const REELS: Reel[] = [
   },
   {
     id: "4",
+    userId: "3",
     user: "@wanderlust",
     displayName: "Wanderlust",
     description: "Found this hidden spot after 6 hours of hiking 🏔️ Worth every step #travel #adventure",
@@ -86,6 +91,7 @@ const REELS: Reel[] = [
   },
   {
     id: "5",
+    userId: "5",
     user: "@stylequeen",
     displayName: "Style Queen",
     description: "GRWM for my coffee date ☕ Outfit details in bio! #fashion #ootd #style",
@@ -149,12 +155,18 @@ function ReelItem({ item, bottomPad }: { item: Reel; bottomPad: number }) {
 
       {/* Right actions */}
       <View style={[styles.actions, { bottom: bottomPad + 80 }]}>
-        <View style={[styles.avatarWrap, { backgroundColor: item.avatarColor }]}>
-          <Text style={styles.avatarText}>{item.displayName[0]}</Text>
-        </View>
-        <View style={styles.plusBadge}>
-          <Feather name="plus" size={12} color="#fff" />
-        </View>
+        <TouchableOpacity
+          onPress={() => router.push({ pathname: "/user/[userId]" as any, params: { userId: item.userId } })}
+          activeOpacity={0.8}
+          style={{ alignItems: "center" }}
+        >
+          <View style={[styles.avatarWrap, { backgroundColor: item.avatarColor }]}>
+            <Text style={styles.avatarText}>{item.displayName[0]}</Text>
+          </View>
+          <View style={styles.plusBadge}>
+            <Feather name="plus" size={12} color="#fff" />
+          </View>
+        </TouchableOpacity>
 
         <View style={{ height: 20 }} />
 
@@ -186,7 +198,12 @@ function ReelItem({ item, bottomPad }: { item: Reel; bottomPad: number }) {
 
       {/* Bottom info */}
       <View style={[styles.info, { paddingBottom: bottomPad + 80 }]}>
-        <Text style={styles.username}>{item.user}</Text>
+        <TouchableOpacity
+          onPress={() => router.push({ pathname: "/user/[userId]" as any, params: { userId: item.userId } })}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.username}>{item.user}</Text>
+        </TouchableOpacity>
         <Text style={styles.description} numberOfLines={2}>{item.description}</Text>
         <View style={styles.musicRow}>
           <Feather name="music" size={12} color="#fff" />

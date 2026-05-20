@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
+import { router } from "expo-router";
 import React, { useCallback, useRef, useState } from "react";
 import {
   Animated,
@@ -414,6 +415,7 @@ function PostCard({
   isScratched,
   scratchedPrize,
   onScratchReady,
+  onAvatarPress,
 }: {
   post: Post;
   onReact: (postId: string, reaction: ReactionType | null) => void;
@@ -422,6 +424,7 @@ function PostCard({
   isScratched: boolean;
   scratchedPrize: GiftCardPrize | null;
   onScratchReady: () => void;
+  onAvatarPress?: () => void;
 }) {
   const [showPicker, setShowPicker] = useState(false);
   const likeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -458,17 +461,24 @@ function PostCard({
     <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
       {/* Header */}
       <View style={styles.cardHeader}>
-        <View style={[styles.cardAvatar, { backgroundColor: post.user.avatarColor }]}>
-          <Text style={styles.cardAvatarText}>{post.user.displayName[0]}</Text>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.cardName, { color: colors.foreground }]}>{post.user.displayName}</Text>
-          <View style={styles.cardMeta}>
-            <Text style={[styles.cardTime, { color: colors.mutedForeground }]}>{post.createdAt}</Text>
-            <Text style={[styles.cardTime, { color: colors.mutedForeground }]}>  ·  </Text>
-            <Feather name="globe" size={11} color={colors.mutedForeground} />
+        <TouchableOpacity
+          onPress={onAvatarPress}
+          activeOpacity={onAvatarPress ? 0.7 : 1}
+          disabled={!onAvatarPress}
+          style={{ flexDirection: "row", alignItems: "center", flex: 1, gap: 8 }}
+        >
+          <View style={[styles.cardAvatar, { backgroundColor: post.user.avatarColor }]}>
+            <Text style={styles.cardAvatarText}>{post.user.displayName[0]}</Text>
           </View>
-        </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.cardName, { color: colors.foreground }]}>{post.user.displayName}</Text>
+            <View style={styles.cardMeta}>
+              <Text style={[styles.cardTime, { color: colors.mutedForeground }]}>{post.createdAt}</Text>
+              <Text style={[styles.cardTime, { color: colors.mutedForeground }]}>  ·  </Text>
+              <Feather name="globe" size={11} color={colors.mutedForeground} />
+            </View>
+          </View>
+        </TouchableOpacity>
         <TouchableOpacity activeOpacity={0.7} style={styles.cardMore}>
           <Feather name="more-horizontal" size={20} color={colors.mutedForeground} />
         </TouchableOpacity>
@@ -836,6 +846,9 @@ export default function NewsFeedScreen() {
               isScratched={!!scratchedMap[item.id]}
               scratchedPrize={scratchedMap[item.id] ?? null}
               onScratchReady={() => handleScratchReady(item)}
+              onAvatarPress={item.user.id === "me" ? undefined : () =>
+                router.push({ pathname: "/user/[userId]" as any, params: { userId: item.user.id } })
+              }
             />
           );
         }}

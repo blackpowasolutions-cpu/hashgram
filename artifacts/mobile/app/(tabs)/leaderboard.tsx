@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { router } from "expo-router";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 
@@ -256,7 +257,12 @@ export default function LeaderboardScreen() {
             const actualRank = i === 1 ? 1 : i === 0 ? 2 : 3;
             const height = actualRank === 1 ? 90 : actualRank === 2 ? 70 : 56;
             return (
-              <View key={u.id} style={styles.podiumSlot}>
+              <TouchableOpacity
+                key={u.id}
+                style={styles.podiumSlot}
+                onPress={() => router.push({ pathname: "/user/[userId]" as any, params: { userId: u.id } })}
+                activeOpacity={0.75}
+              >
                 <Text style={styles.medal}>{MEDALS[actualRank - 1]}</Text>
                 <View style={[styles.podiumAvatar, { backgroundColor: u.avatarColor,
                   width: actualRank === 1 ? 60 : 50, height: actualRank === 1 ? 60 : 50,
@@ -276,7 +282,7 @@ export default function LeaderboardScreen() {
                   opacity: actualRank === 1 ? 1 : 0.7 }]}>
                   <Text style={styles.podiumRank}>#{actualRank}</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             );
           })}
         </View>
@@ -291,13 +297,22 @@ export default function LeaderboardScreen() {
                 android_ripple={{ color: colors.muted }}
               >
                 <Text style={[styles.listRank, { color: colors.mutedForeground }]}>#{u.rank}</Text>
-                <View style={[styles.listAvatar, { backgroundColor: u.avatarColor }]}>
-                  <Text style={styles.listAvatarText}>{u.displayName[0]}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
+                <TouchableOpacity
+                  onPress={() => router.push({ pathname: "/user/[userId]" as any, params: { userId: u.id } })}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.listAvatar, { backgroundColor: u.avatarColor }]}>
+                    <Text style={styles.listAvatarText}>{u.displayName[0]}</Text>
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => router.push({ pathname: "/user/[userId]" as any, params: { userId: u.id } })}
+                  activeOpacity={0.8}
+                  style={{ flex: 1 }}
+                >
                   <Text style={[styles.listName, { color: colors.foreground }]}>{u.displayName}</Text>
                   <Text style={[styles.listUsername, { color: colors.mutedForeground }]}>{u.username}</Text>
-                </View>
+                </TouchableOpacity>
                 <View style={{ alignItems: "flex-end", gap: 2 }}>
                   <Text style={[styles.listPts, { color: colors.foreground }]}>{formatPoints(u.points)}</Text>
                   <Text style={[styles.listPtsLabel, { color: colors.mutedForeground }]}>pts</Text>

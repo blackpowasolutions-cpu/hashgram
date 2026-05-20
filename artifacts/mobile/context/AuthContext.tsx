@@ -6,9 +6,11 @@ export interface User {
   username: string;
   displayName: string;
   bio: string;
+  website?: string;
   followers: number;
   following: number;
   likes: number;
+  avatarUri?: string;
 }
 
 interface AuthContextType {
