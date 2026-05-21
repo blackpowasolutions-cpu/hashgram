@@ -815,6 +815,8 @@ export default function FeedScreen() {
   const { user, token } = useAuth();
   const { conversations } = useMessages();
   const totalUnread = conversations.reduce((s, c) => s + c.unreadCount, 0);
+  const { isFollowing } = useSocial();
+  const [feedTab, setFeedTab] = useState<"forYou" | "following">("forYou");
   const [reels, setReels] = useState<Reel[]>(REELS);
   const [refreshing, setRefreshing] = useState(false);
   const [uploadToast, setUploadToast] = useState(false);
@@ -900,9 +902,16 @@ export default function FeedScreen() {
   }, []);
 
   // Build feed: inject a gift surprise card after every 4th reel
+  const visibleReels = useMemo(() => {
+    if (feedTab === "following") {
+      return reels.filter((r) => isFollowing(r.userId));
+    }
+    return reels;
+  }, [reels, feedTab, isFollowing]);
+
   const listData = useMemo<ListItem[]>(() => {
     const result: ListItem[] = [];
-    reels.forEach((reel, i) => {
+    visibleReels.forEach((reel, i) => {
       result.push(reel);
       if ((i + 1) % 4 === 0) {
         const prizeIndex = Math.floor(i / 4) % GIFT_PRIZES.length;
@@ -911,7 +920,7 @@ export default function FeedScreen() {
       }
     });
     return result;
-  }, [reels]);
+  }, [visibleReels]);
 
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
@@ -1023,11 +1032,11 @@ export default function FeedScreen() {
         </TouchableOpacity>
 
         <View style={{ flex: 1, flexDirection: "row", justifyContent: "center", gap: 20 }}>
-          <TouchableOpacity activeOpacity={0.7}>
-            <Text style={styles.headerTab}>Following</Text>
+          <TouchableOpacity activeOpacity={0.7} onPress={() => setFeedTab("following")}>
+            <Text style={[styles.headerTab, feedTab === "following" && styles.headerTabActive]}>Following</Text>
           </TouchableOpacity>
-          <TouchableOpacity activeOpacity={0.7}>
-            <Text style={[styles.headerTab, styles.headerTabActive]}>For You</Text>
+          <TouchableOpacity activeOpacity={0.7} onPress={() => setFeedTab("forYou")}>
+            <Text style={[styles.headerTab, feedTab === "forYou" && styles.headerTabActive]}>For You</Text>
           </TouchableOpacity>
         </View>
 
@@ -1080,15 +1089,26 @@ export default function FeedScreen() {
           />
         }
         ListEmptyComponent={
-          <View style={[styles.emptyState, { height, paddingBottom: bottomPad + 80 }]}>
-            <Feather name="video" size={52} color="rgba(255,255,255,0.18)" />
-            <Text style={styles.emptyTitle}>No reels yet</Text>
-            <Text style={styles.emptySubtitle}>Be the first to share a reel!</Text>
-            <TouchableOpacity style={styles.emptyUploadBtn} onPress={handleUpload} activeOpacity={0.8}>
-              <Feather name="plus" size={16} color="#fff" />
-              <Text style={styles.emptyUploadText}>Upload your first reel</Text>
-            </TouchableOpacity>
-          </View>
+          feedTab === "following" ? (
+            <View style={[styles.emptyState, { height, paddingBottom: bottomPad + 80 }]}>
+              <Feather name="users" size={52} color="rgba(255,255,255,0.18)" />
+              <Text style={styles.emptyTitle}>No reels from people you follow</Text>
+              <Text style={styles.emptySubtitle}>Discover creators in For You and follow them to see their reels here.</Text>
+              <TouchableOpacity style={styles.emptyUploadBtn} onPress={() => setFeedTab("forYou")} activeOpacity={0.8}>
+                <Text style={styles.emptyUploadText}>Explore For You</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={[styles.emptyState, { height, paddingBottom: bottomPad + 80 }]}>
+              <Feather name="video" size={52} color="rgba(255,255,255,0.18)" />
+              <Text style={styles.emptyTitle}>No reels yet</Text>
+              <Text style={styles.emptySubtitle}>Be the first to share a reel!</Text>
+              <TouchableOpacity style={styles.emptyUploadBtn} onPress={handleUpload} activeOpacity={0.8}>
+                <Feather name="plus" size={16} color="#fff" />
+                <Text style={styles.emptyUploadText}>Upload your first reel</Text>
+              </TouchableOpacity>
+            </View>
+          )
         }
       />
 
