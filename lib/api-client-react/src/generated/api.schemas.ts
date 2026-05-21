@@ -100,10 +100,35 @@ export interface Reel {
   thumbnailUrl?: string | null;
   views: number;
   likesCount: number;
+  commentsCount: number;
   /** @nullable */
   music?: string | null;
   likedByMe?: boolean;
   createdAt: string;
+}
+
+export interface ReelComment {
+  id: number;
+  reelId: number;
+  userId: number;
+  user?: UserPublic;
+  body: string;
+  createdAt: string;
+}
+
+export interface ReelCommentInput {
+  /**
+     * @minLength 1
+     * @maxLength 500
+     */
+  body: string;
+}
+
+export interface ReelCommentList {
+  items: ReelComment[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 export interface ReelInput {
@@ -337,6 +362,11 @@ limit?: number;
  * @nullable
  */
 userId?: number | null;
+};
+
+export type ListReelCommentsParams = {
+page?: number;
+limit?: number;
 };
 
 export type ListPostsParams = {

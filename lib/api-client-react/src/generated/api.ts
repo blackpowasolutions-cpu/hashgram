@@ -36,6 +36,7 @@ import type {
   ListAdminReelsParams,
   ListAdminUsersParams,
   ListPostsParams,
+  ListReelCommentsParams,
   ListReelsParams,
   LoginInput,
   Message,
@@ -50,6 +51,9 @@ import type {
   PurchaseInput,
   ReactionInput,
   Reel,
+  ReelComment,
+  ReelCommentInput,
+  ReelCommentList,
   ReelInput,
   ReelList,
   RegisterInput,
@@ -1434,6 +1438,155 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getViewReelMutationOptions(options));
+    }
+
+export const getListReelCommentsUrl = (id: number,
+    params?: ListReelCommentsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/reels/${id}/comments?${stringifiedParams}` : `/api/reels/${id}/comments`
+}
+
+export const listReelComments = async (id: number,
+    params?: ListReelCommentsParams, options?: RequestInit): Promise<ReelCommentList> => {
+
+  return customFetch<ReelCommentList>(getListReelCommentsUrl(id,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListReelCommentsQueryKey = (id: number,
+    params?: ListReelCommentsParams,) => {
+    return [
+    `/api/reels/${id}/comments`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListReelCommentsQueryOptions = <TData = Awaited<ReturnType<typeof listReelComments>>, TError = ErrorType<ErrorResponse>>(id: number,
+    params?: ListReelCommentsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listReelComments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListReelCommentsQueryKey(id,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listReelComments>>> = ({ signal }) => listReelComments(id,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listReelComments>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListReelCommentsQueryResult = NonNullable<Awaited<ReturnType<typeof listReelComments>>>
+export type ListReelCommentsQueryError = ErrorType<ErrorResponse>
+
+
+
+export function useListReelComments<TData = Awaited<ReturnType<typeof listReelComments>>, TError = ErrorType<ErrorResponse>>(
+ id: number,
+    params?: ListReelCommentsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listReelComments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListReelCommentsQueryOptions(id,params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getCreateReelCommentUrl = (id: number,) => {
+
+
+
+
+  return `/api/reels/${id}/comments`
+}
+
+export const createReelComment = async (id: number,
+    reelCommentInput: ReelCommentInput, options?: RequestInit): Promise<ReelComment> => {
+
+  return customFetch<ReelComment>(getCreateReelCommentUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      reelCommentInput,)
+  }
+);}
+
+
+
+
+export const getCreateReelCommentMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createReelComment>>, TError,{id: number;data: BodyType<ReelCommentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createReelComment>>, TError,{id: number;data: BodyType<ReelCommentInput>}, TContext> => {
+
+const mutationKey = ['createReelComment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createReelComment>>, {id: number;data: BodyType<ReelCommentInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createReelComment(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateReelCommentMutationResult = NonNullable<Awaited<ReturnType<typeof createReelComment>>>
+    export type CreateReelCommentMutationBody = BodyType<ReelCommentInput>
+    export type CreateReelCommentMutationError = ErrorType<ErrorResponse>
+
+    export const useCreateReelComment = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createReelComment>>, TError,{id: number;data: BodyType<ReelCommentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createReelComment>>,
+        TError,
+        {id: number;data: BodyType<ReelCommentInput>},
+        TContext
+      > => {
+      return useMutation(getCreateReelCommentMutationOptions(options));
     }
 
 export const getListPostsUrl = (params?: ListPostsParams,) => {

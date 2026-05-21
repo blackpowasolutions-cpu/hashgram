@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { eq, sql, and, desc } from "drizzle-orm";
-import { db, usersTable, reelsTable, reelLikesTable, pointsLogTable } from "@workspace/db";
-import { ListReelsQueryParams, CreateReelBody, GetReelParams, DeleteReelParams, LikeReelParams, UnlikeReelParams, ViewReelParams } from "@workspace/api-zod";
+import { db, usersTable, reelsTable, reelLikesTable, reelCommentsTable, pointsLogTable } from "@workspace/db";
+import { ListReelsQueryParams, CreateReelBody, GetReelParams, DeleteReelParams, LikeReelParams, UnlikeReelParams, ViewReelParams, ListReelCommentsParams, ListReelCommentsQueryParams, CreateReelCommentParams, CreateReelCommentBody } from "@workspace/api-zod";
 import { requireAuth, optionalAuth } from "../middlewares/auth";
 
 const router: IRouter = Router();
@@ -53,18 +53,30 @@ router.get("/reels", optionalAuth, async (req: Request, res: Response): Promise<
   const reelIds = reels.map((r) => r.id);
 
   const likesCounts: Record<number, number> = {};
+  const commentsCounts: Record<number, number> = {};
+
   if (reelIds.length > 0) {
-    const counts = await db
-      .select({
-        reelId: reelLikesTable.reelId,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(reelLikesTable)
-      .where(sql`${reelLikesTable.reelId} = ANY(${sql.raw(`ARRAY[${reelIds.join(",")}]::int[]`)})`)
-      .groupBy(reelLikesTable.reelId);
-    counts.forEach((c) => {
-      likesCounts[c.reelId] = c.count;
-    });
+    const [likesResult, commentsResult] = await Promise.all([
+      db
+        .select({
+          reelId: reelLikesTable.reelId,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(reelLikesTable)
+        .where(sql`${reelLikesTable.reelId} = ANY(${sql.raw(`ARRAY[${reelIds.join(",")}]::int[]`)})`)
+        .groupBy(reelLikesTable.reelId),
+      db
+        .select({
+          reelId: reelCommentsTable.reelId,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(reelCommentsTable)
+        .where(sql`${reelCommentsTable.reelId} = ANY(${sql.raw(`ARRAY[${reelIds.join(",")}]::int[]`)})`)
+        .groupBy(reelCommentsTable.reelId),
+    ]);
+
+    likesResult.forEach((c) => { likesCounts[c.reelId] = c.count; });
+    commentsResult.forEach((c) => { commentsCounts[c.reelId] = c.count; });
   }
 
   const likedByMe: Set<number> = new Set();
@@ -99,6 +111,7 @@ router.get("/reels", optionalAuth, async (req: Request, res: Response): Promise<
       music: r.music,
       createdAt: r.createdAt,
       likesCount: likesCounts[r.id] ?? 0,
+      commentsCount: commentsCounts[r.id] ?? 0,
       likedByMe: likedByMe.has(r.id),
     })),
     total: totalRow.count,
@@ -138,6 +151,7 @@ router.post("/reels", requireAuth, async (req: Request, res: Response): Promise<
     music: reel.music,
     createdAt: reel.createdAt,
     likesCount: 0,
+    commentsCount: 0,
     likedByMe: false,
   });
 });
@@ -176,10 +190,16 @@ router.get("/reels/:id", optionalAuth, async (req: Request, res: Response): Prom
     return;
   }
 
-  const [likesRow] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(reelLikesTable)
-    .where(eq(reelLikesTable.reelId, id));
+  const [[likesRow], [commentsRow]] = await Promise.all([
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(reelLikesTable)
+      .where(eq(reelLikesTable.reelId, id)),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(reelCommentsTable)
+      .where(eq(reelCommentsTable.reelId, id)),
+  ]);
 
   let likedByMe = false;
   if (req.userId) {
@@ -201,7 +221,8 @@ router.get("/reels/:id", optionalAuth, async (req: Request, res: Response): Prom
     views: reel.views,
     music: reel.music,
     createdAt: reel.createdAt,
-    likesCount: likesRow.count,
+    likesCount: likesRow?.count ?? 0,
+    commentsCount: commentsRow?.count ?? 0,
     likedByMe,
   });
 });
@@ -237,7 +258,6 @@ router.post("/reels/:id/like", requireAuth, async (req: Request, res: Response):
   }
   const { id } = params.data;
 
-  // Check if already liked to avoid duplicate point awards
   const [existingLike] = await db
     .select({ id: reelLikesTable.id })
     .from(reelLikesTable)
@@ -249,7 +269,6 @@ router.post("/reels/:id/like", requireAuth, async (req: Request, res: Response):
     .values({ reelId: id, userId: req.userId! })
     .onConflictDoNothing();
 
-  // Award +1 point to reel creator on new like
   if (!existingLike) {
     const [reel] = await db
       .select({ userId: reelsTable.userId })
@@ -305,7 +324,6 @@ router.post("/reels/:id/view", optionalAuth, async (req: Request, res: Response)
     db.update(reelsTable).set({ views: sql`${reelsTable.views} + 1` }).where(eq(reelsTable.id, id)),
   ];
 
-  // Award +1 point to the viewer (logged-in users) for watching reels
   if (req.userId && req.userId !== reel.userId) {
     ops.push(
       db.insert(pointsLogTable).values({ userId: req.userId, amount: 1, reason: "reel_play" }),
@@ -315,6 +333,128 @@ router.post("/reels/:id/view", optionalAuth, async (req: Request, res: Response)
 
   await Promise.all(ops);
   res.sendStatus(204);
+});
+
+router.get("/reels/:id/comments", optionalAuth, async (req: Request, res: Response): Promise<void> => {
+  const params = ListReelCommentsParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: "Invalid reel ID" });
+    return;
+  }
+  const query = ListReelCommentsQueryParams.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: query.error.message });
+    return;
+  }
+
+  const { id } = params.data;
+  const page = query.data.page ?? 1;
+  const limit = query.data.limit ?? 50;
+  const offset = (page - 1) * limit;
+
+  const [reel] = await db
+    .select({ id: reelsTable.id })
+    .from(reelsTable)
+    .where(and(eq(reelsTable.id, id), eq(reelsTable.isActive, true)))
+    .limit(1);
+
+  if (!reel) {
+    res.status(404).json({ error: "Reel not found" });
+    return;
+  }
+
+  const [totalRow, comments] = await Promise.all([
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(reelCommentsTable)
+      .where(eq(reelCommentsTable.reelId, id)),
+    db
+      .select({
+        id: reelCommentsTable.id,
+        reelId: reelCommentsTable.reelId,
+        userId: reelCommentsTable.userId,
+        body: reelCommentsTable.body,
+        createdAt: reelCommentsTable.createdAt,
+        username: usersTable.username,
+        displayName: usersTable.displayName,
+        avatarUrl: usersTable.avatarUrl,
+        bio: usersTable.bio,
+      })
+      .from(reelCommentsTable)
+      .innerJoin(usersTable, eq(reelCommentsTable.userId, usersTable.id))
+      .where(eq(reelCommentsTable.reelId, id))
+      .orderBy(desc(reelCommentsTable.createdAt))
+      .limit(limit)
+      .offset(offset),
+  ]);
+
+  res.json({
+    items: comments.map((c) => ({
+      id: c.id,
+      reelId: c.reelId,
+      userId: c.userId,
+      user: {
+        id: c.userId,
+        username: c.username,
+        displayName: c.displayName,
+        avatarUrl: c.avatarUrl,
+        bio: c.bio,
+      },
+      body: c.body,
+      createdAt: c.createdAt,
+    })),
+    total: totalRow[0]?.count ?? 0,
+    page,
+    limit,
+  });
+});
+
+router.post("/reels/:id/comments", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const params = CreateReelCommentParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: "Invalid reel ID" });
+    return;
+  }
+  const body = CreateReelCommentBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+
+  const { id } = params.data;
+
+  const [reel] = await db
+    .select({ id: reelsTable.id })
+    .from(reelsTable)
+    .where(and(eq(reelsTable.id, id), eq(reelsTable.isActive, true)))
+    .limit(1);
+
+  if (!reel) {
+    res.status(404).json({ error: "Reel not found" });
+    return;
+  }
+
+  const [comment] = await db
+    .insert(reelCommentsTable)
+    .values({ reelId: id, userId: req.userId!, body: body.data.body })
+    .returning();
+
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, req.userId!))
+    .limit(1);
+
+  res.status(201).json({
+    id: comment.id,
+    reelId: comment.reelId,
+    userId: comment.userId,
+    user: user
+      ? { id: user.id, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl, bio: user.bio }
+      : null,
+    body: comment.body,
+    createdAt: comment.createdAt,
+  });
 });
 
 export default router;

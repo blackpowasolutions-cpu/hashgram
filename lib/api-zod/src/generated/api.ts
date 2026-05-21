@@ -179,6 +179,7 @@ export const GetUserReelsResponseItem = zod.object({
   "thumbnailUrl": zod.string().nullish(),
   "views": zod.number(),
   "likesCount": zod.number(),
+  "commentsCount": zod.number(),
   "music": zod.string().nullish(),
   "likedByMe": zod.boolean().optional(),
   "createdAt": zod.coerce.date()
@@ -237,6 +238,7 @@ export const ListReelsResponse = zod.object({
   "thumbnailUrl": zod.string().nullish(),
   "views": zod.number(),
   "likesCount": zod.number(),
+  "commentsCount": zod.number(),
   "music": zod.string().nullish(),
   "likedByMe": zod.boolean().optional(),
   "createdAt": zod.coerce.date()
@@ -274,6 +276,7 @@ export const GetReelResponse = zod.object({
   "thumbnailUrl": zod.string().nullish(),
   "views": zod.number(),
   "likesCount": zod.number(),
+  "commentsCount": zod.number(),
   "music": zod.string().nullish(),
   "likedByMe": zod.boolean().optional(),
   "createdAt": zod.coerce.date()
@@ -297,6 +300,52 @@ export const UnlikeReelParams = zod.object({
 
 export const ViewReelParams = zod.object({
   "id": zod.coerce.number()
+})
+
+
+export const ListReelCommentsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const listReelCommentsQueryPageDefault = 1;
+export const listReelCommentsQueryLimitDefault = 50;
+
+export const ListReelCommentsQueryParams = zod.object({
+  "page": zod.coerce.number().default(listReelCommentsQueryPageDefault),
+  "limit": zod.coerce.number().default(listReelCommentsQueryLimitDefault)
+})
+
+export const ListReelCommentsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.number(),
+  "reelId": zod.number(),
+  "userId": zod.number(),
+  "user": zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "displayName": zod.string(),
+  "avatarUrl": zod.string().nullish(),
+  "bio": zod.string().nullish()
+}).optional(),
+  "body": zod.string(),
+  "createdAt": zod.coerce.date()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number()
+})
+
+
+export const CreateReelCommentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const createReelCommentBodyBodyMax = 500;
+
+
+
+export const CreateReelCommentBody = zod.object({
+  "body": zod.string().min(1).max(createReelCommentBodyBodyMax)
 })
 
 
@@ -702,6 +751,7 @@ export const ListAdminReelsResponse = zod.object({
   "thumbnailUrl": zod.string().nullish(),
   "views": zod.number(),
   "likesCount": zod.number(),
+  "commentsCount": zod.number(),
   "music": zod.string().nullish(),
   "likedByMe": zod.boolean().optional(),
   "createdAt": zod.coerce.date()

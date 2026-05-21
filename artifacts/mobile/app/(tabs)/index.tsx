@@ -16,6 +16,7 @@ import {
   Platform,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -52,6 +53,14 @@ interface Reel {
   videoUri?: string;
   music: string;
   avatarColor: string;
+}
+
+interface Comment {
+  id: string;
+  userId: string;
+  user: { username: string; displayName: string; avatarUrl?: string | null };
+  body: string;
+  createdAt: string;
 }
 
 interface GiftItem {
@@ -192,13 +201,376 @@ function GiftSurpriseCard({ item, bottomPad }: { item: GiftItem; bottomPad: numb
   );
 }
 
+// ─── Comments Sheet ───────────────────────────────────────────────────────────
+
+function CommentsSheet({
+  reelId,
+  visible,
+  onClose,
+  onCommented,
+}: {
+  reelId: string;
+  visible: boolean;
+  onClose: () => void;
+  onCommented: () => void;
+}) {
+  const { user, token } = useAuth();
+  const insets = useSafeAreaInsets();
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [posting, setPosting] = useState(false);
+  const inputRef = useRef<TextInput>(null);
+
+  const fetchComments = useCallback(async () => {
+    if (!reelId) return;
+    const reelIdNum = Number(reelId);
+    if (!Number.isFinite(reelIdNum)) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/reels/${reelIdNum}/comments?limit=50`);
+      if (res.ok) {
+        const data = await res.json();
+        setComments(
+          (data.items ?? []).map((c: any): Comment => ({
+            id: String(c.id),
+            userId: String(c.userId),
+            user: {
+              username: c.user?.username ?? "",
+              displayName: c.user?.displayName ?? "",
+              avatarUrl: c.user?.avatarUrl ?? null,
+            },
+            body: c.body,
+            createdAt: c.createdAt,
+          }))
+        );
+        setTotal(data.total ?? 0);
+      }
+    } catch {}
+    setLoading(false);
+  }, [reelId]);
+
+  useEffect(() => {
+    if (visible) {
+      fetchComments();
+      setDraft("");
+    } else {
+      setComments([]);
+      setTotal(0);
+    }
+  }, [visible, fetchComments]);
+
+  const handlePost = useCallback(async () => {
+    if (!token || !draft.trim() || posting) return;
+    const body = draft.trim();
+    setPosting(true);
+    const reelIdNum = Number(reelId);
+    try {
+      const res = await fetch(`${API_BASE}/reels/${reelIdNum}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ body }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const newComment: Comment = {
+          id: String(data.id),
+          userId: String(data.userId),
+          user: {
+            username: data.user?.username ?? user?.username ?? "",
+            displayName: data.user?.displayName ?? user?.displayName ?? "",
+            avatarUrl: data.user?.avatarUrl ?? null,
+          },
+          body: data.body,
+          createdAt: data.createdAt,
+        };
+        setComments((prev) => [newComment, ...prev]);
+        setTotal((t) => t + 1);
+        setDraft("");
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        onCommented();
+      }
+    } catch {}
+    setPosting(false);
+  }, [token, draft, posting, reelId, user, onCommented]);
+
+  const formatTime = (iso: string) => {
+    const d = new Date(iso);
+    const now = Date.now();
+    const diff = Math.floor((now - d.getTime()) / 1000);
+    if (diff < 60) return `${diff}s`;
+    if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+    return `${Math.floor(diff / 86400)}d`;
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={csStyles.backdrop} onPress={onClose} />
+      <KeyboardAvoidingView
+        style={csStyles.container}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <View style={[csStyles.sheet, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          <View style={csStyles.handle} />
+
+          <View style={csStyles.header}>
+            <Text style={csStyles.headerTitle}>
+              {total > 0 ? `${total} comment${total !== 1 ? "s" : ""}` : "Comments"}
+            </Text>
+            <TouchableOpacity onPress={onClose} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Feather name="x" size={20} color="rgba(255,255,255,0.6)" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView
+            style={csStyles.list}
+            contentContainerStyle={csStyles.listContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            {loading && comments.length === 0 && (
+              <Text style={csStyles.emptyText}>Loading comments…</Text>
+            )}
+            {!loading && comments.length === 0 && (
+              <View style={csStyles.emptyWrap}>
+                <Feather name="message-circle" size={36} color="rgba(255,255,255,0.15)" />
+                <Text style={csStyles.emptyText}>No comments yet.</Text>
+                <Text style={csStyles.emptySubText}>Be the first to say something!</Text>
+              </View>
+            )}
+            {comments.map((c) => (
+              <View key={c.id} style={csStyles.commentRow}>
+                <View style={csStyles.commentAvatar}>
+                  <Text style={csStyles.commentAvatarText}>
+                    {(c.user.displayName || c.user.username || "?")[0].toUpperCase()}
+                  </Text>
+                </View>
+                <View style={csStyles.commentBody}>
+                  <View style={csStyles.commentMeta}>
+                    <Text style={csStyles.commentName}>{c.user.displayName || c.user.username}</Text>
+                    <Text style={csStyles.commentTime}>{formatTime(c.createdAt)}</Text>
+                  </View>
+                  <Text style={csStyles.commentText}>{c.body}</Text>
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+
+          {user ? (
+            <View style={csStyles.inputRow}>
+              <View style={csStyles.myAvatar}>
+                <Text style={csStyles.myAvatarText}>
+                  {(user.displayName || user.username || "?")[0].toUpperCase()}
+                </Text>
+              </View>
+              <TextInput
+                ref={inputRef}
+                style={csStyles.input}
+                value={draft}
+                onChangeText={setDraft}
+                placeholder="Add a comment…"
+                placeholderTextColor="rgba(255,255,255,0.3)"
+                multiline={false}
+                maxLength={500}
+                returnKeyType="send"
+                onSubmitEditing={handlePost}
+                blurOnSubmit={false}
+              />
+              <TouchableOpacity
+                onPress={handlePost}
+                activeOpacity={0.7}
+                disabled={!draft.trim() || posting}
+                style={[csStyles.sendBtn, (!draft.trim() || posting) && csStyles.sendBtnDisabled]}
+              >
+                <Feather name="send" size={18} color={draft.trim() && !posting ? "#FE2C55" : "rgba(255,255,255,0.25)"} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={csStyles.loginPrompt}>
+              <Text style={csStyles.loginPromptText}>Log in to leave a comment</Text>
+            </View>
+          )}
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+const csStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+  },
+  container: {
+    justifyContent: "flex-end",
+  },
+  sheet: {
+    backgroundColor: "#111",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: "70%",
+    minHeight: 260,
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    alignSelf: "center",
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(255,255,255,0.1)",
+  },
+  headerTitle: {
+    color: "#fff",
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+  },
+  list: {
+    flex: 1,
+  },
+  listContent: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 16,
+    flexGrow: 1,
+  },
+  emptyWrap: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 32,
+    gap: 8,
+  },
+  emptyText: {
+    color: "rgba(255,255,255,0.35)",
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+  },
+  emptySubText: {
+    color: "rgba(255,255,255,0.2)",
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+  },
+  commentRow: {
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "flex-start",
+  },
+  commentAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "#FF6B9D",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  commentAvatarText: {
+    color: "#fff",
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+  },
+  commentBody: {
+    flex: 1,
+    gap: 2,
+  },
+  commentMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  commentName: {
+    color: "#fff",
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+  },
+  commentTime: {
+    color: "rgba(255,255,255,0.4)",
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+  },
+  commentText: {
+    color: "rgba(255,255,255,0.85)",
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 20,
+  },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(255,255,255,0.1)",
+  },
+  myAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#FE2C55",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  myAvatarText: {
+    color: "#fff",
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+  },
+  input: {
+    flex: 1,
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    color: "#fff",
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+  },
+  sendBtn: {
+    padding: 6,
+  },
+  sendBtnDisabled: {
+    opacity: 0.5,
+  },
+  loginPrompt: {
+    alignItems: "center",
+    paddingVertical: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(255,255,255,0.1)",
+  },
+  loginPromptText: {
+    color: "rgba(255,255,255,0.4)",
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+  },
+});
+
 // ─── Reel Item ────────────────────────────────────────────────────────────────
 
-function ReelItem({ item, bottomPad, isActive }: { item: Reel; bottomPad: number; isActive: boolean }) {
+function ReelItem({ item, bottomPad, isActive, onCommentCountChange }: { item: Reel; bottomPad: number; isActive: boolean; onCommentCountChange?: (reelId: string, delta: number) => void }) {
   const { user, token } = useAuth();
   const { isFollowing, toggleFollow } = useSocial();
   const [liked, setLiked] = useState(item.likedByMe);
   const [likeCount, setLikeCount] = useState(item.likes);
+  const [commentCount, setCommentCount] = useState(item.comments);
+  const [commentsVisible, setCommentsVisible] = useState(false);
   const [heartVisible, setHeartVisible] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const lastTap = useRef(0);
@@ -219,6 +591,15 @@ function ReelItem({ item, bottomPad, isActive }: { item: Reel; bottomPad: number
     setLiked(item.likedByMe);
     setLikeCount(item.likes);
   }, [item.likedByMe, item.likes]);
+
+  useEffect(() => {
+    setCommentCount(item.comments);
+  }, [item.comments]);
+
+  const handleCommented = useCallback(() => {
+    setCommentCount((c) => c + 1);
+    onCommentCountChange?.(item.id, 1);
+  }, [item.id, onCommentCountChange]);
 
   const sendLike = useCallback(
     async (shouldLike: boolean): Promise<boolean> => {
@@ -377,9 +758,9 @@ function ReelItem({ item, bottomPad, isActive }: { item: Reel; bottomPad: number
         </TouchableOpacity>
 
         {/* Comment */}
-        <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7} onPress={() => setCommentsVisible(true)}>
           <Feather name="message-circle" size={28} color="#fff" />
-          <Text style={styles.actionCount}>{formatCount(item.comments)}</Text>
+          <Text style={styles.actionCount}>{formatCount(commentCount)}</Text>
         </TouchableOpacity>
 
         {/* Share */}
@@ -415,6 +796,13 @@ function ReelItem({ item, bottomPad, isActive }: { item: Reel; bottomPad: number
           <Text style={styles.musicText} numberOfLines={1}>{item.music}</Text>
         </View>
       </View>
+
+      <CommentsSheet
+        reelId={item.id}
+        visible={commentsVisible}
+        onClose={() => setCommentsVisible(false)}
+        onCommented={handleCommented}
+      />
     </Pressable>
   );
 }
@@ -455,7 +843,7 @@ export default function FeedScreen() {
           displayName: r.user?.displayName ?? "",
           description: r.description ?? "",
           likes: r.likesCount ?? 0,
-          comments: 0,
+          comments: r.commentsCount ?? 0,
           shares: 0,
           views: r.views ?? 0,
           likedByMe: !!r.likedByMe,
@@ -504,6 +892,12 @@ export default function FeedScreen() {
         );
       });
   }, [activeId, token]);
+
+  const handleCommentCountChange = useCallback((reelId: string, delta: number) => {
+    setReels((prev) =>
+      prev.map((r) => (r.id === reelId ? { ...r, comments: Math.max(0, r.comments + delta) } : r))
+    );
+  }, []);
 
   // Build feed: inject a gift surprise card after every 4th reel
   const listData = useMemo<ListItem[]>(() => {
@@ -667,7 +1061,7 @@ export default function FeedScreen() {
         renderItem={({ item }) =>
           isGift(item)
             ? <GiftSurpriseCard item={item} bottomPad={bottomPad} />
-            : <ReelItem item={item} bottomPad={bottomPad} isActive={item.id === activeId} />
+            : <ReelItem item={item} bottomPad={bottomPad} isActive={item.id === activeId} onCommentCountChange={handleCommentCountChange} />
         }
         pagingEnabled
         snapToInterval={height}

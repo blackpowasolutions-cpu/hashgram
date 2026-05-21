@@ -23,6 +23,14 @@ export const reelLikesTable = pgTable("reel_likes", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [unique().on(t.reelId, t.userId)]);
 
+export const reelCommentsTable = pgTable("reel_comments", {
+  id: serial("id").primaryKey(),
+  reelId: integer("reel_id").notNull().references(() => reelsTable.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const insertReelSchema = createInsertSchema(reelsTable).omit({
   id: true,
   views: true,
@@ -38,3 +46,10 @@ export const insertReelLikeSchema = createInsertSchema(reelLikesTable).omit({
 });
 export type InsertReelLike = z.infer<typeof insertReelLikeSchema>;
 export type ReelLike = typeof reelLikesTable.$inferSelect;
+
+export const insertReelCommentSchema = createInsertSchema(reelCommentsTable).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertReelComment = z.infer<typeof insertReelCommentSchema>;
+export type ReelComment = typeof reelCommentsTable.$inferSelect;

@@ -19,6 +19,7 @@ export interface Reel {
   thumbnailUrl?: string | null;
   views: number;
   likesCount: number;
+  commentsCount: number;
   /** @nullable */
   music?: string | null;
   likedByMe?: boolean;

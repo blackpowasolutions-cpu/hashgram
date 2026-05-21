@@ -400,6 +400,71 @@ paths:
         "204":
           description: Recorded
 
+  /reels/{id}/comments:
+    get:
+      operationId: listReelComments
+      tags: [reels]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReelCommentList"
+        "404":
+          description: Reel not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      operationId: createReelComment
+      tags: [reels]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReelCommentInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReelComment"
+        "404":
+          description: Reel not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   # ── Posts ────────────────────────────────────────────────────────────────────
   /posts:
     get:
@@ -1080,7 +1145,7 @@ components:
     # ── Reels ──────────────────────────────────────────────────────────────────
     Reel:
       type: object
-      required: [id, userId, views, likesCount, createdAt]
+      required: [id, userId, views, likesCount, commentsCount, createdAt]
       properties:
         id:
           type: integer
@@ -1098,6 +1163,8 @@ components:
           type: integer
         likesCount:
           type: integer
+        commentsCount:
+          type: integer
         music:
           type: ["string", "null"]
         likedByMe:
@@ -1105,6 +1172,48 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    ReelComment:
+      type: object
+      required: [id, reelId, userId, body, createdAt]
+      properties:
+        id:
+          type: integer
+        reelId:
+          type: integer
+        userId:
+          type: integer
+        user:
+          $ref: "#/components/schemas/UserPublic"
+        body:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    ReelCommentInput:
+      type: object
+      required: [body]
+      properties:
+        body:
+          type: string
+          minLength: 1
+          maxLength: 500
+
+    ReelCommentList:
+      type: object
+      required: [items, total, page, limit]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReelComment"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
 
     ReelInput:
       type: object
