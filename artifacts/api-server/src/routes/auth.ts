@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import bcrypt from "bcryptjs";
-import { eq, or } from "drizzle-orm";
-import { db, usersTable } from "@workspace/db";
+import { eq, or, and, gte, sql } from "drizzle-orm";
+import { db, usersTable, pointsLogTable } from "@workspace/db";
 import { RegisterUserBody, LoginUserBody } from "@workspace/api-zod";
 import { signToken, getLevel } from "../lib/jwt";
 import { requireAuth } from "../middlewares/auth";
@@ -78,6 +78,30 @@ router.post("/auth/login", async (req: Request, res: Response): Promise<void> =>
   }
 
   const token = signToken({ userId: user.id, role: user.role });
+
+  // Award 5 points for first login of the day
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const [loginToday] = await db
+    .select({ id: pointsLogTable.id })
+    .from(pointsLogTable)
+    .where(
+      and(
+        eq(pointsLogTable.userId, user.id),
+        eq(pointsLogTable.reason, "login"),
+        gte(pointsLogTable.createdAt, todayStart)
+      )
+    )
+    .limit(1);
+
+  if (!loginToday) {
+    await Promise.all([
+      db.insert(pointsLogTable).values({ userId: user.id, amount: 5, reason: "login" }),
+      db.update(usersTable).set({ points: sql`${usersTable.points} + 5` }).where(eq(usersTable.id, user.id)),
+    ]);
+    user.points += 5;
+  }
+
   res.json({
     token,
     user: {

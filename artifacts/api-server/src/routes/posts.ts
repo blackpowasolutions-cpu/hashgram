@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { eq, sql, and, desc } from "drizzle-orm";
-import { db, usersTable, postsTable, postReactionsTable } from "@workspace/db";
+import { db, usersTable, postsTable, postReactionsTable, pointsLogTable } from "@workspace/db";
 import { ListPostsQueryParams, CreatePostBody, DeletePostParams, ReactToPostParams, ReactToPostBody, RemovePostReactionParams } from "@workspace/api-zod";
 import { requireAuth, optionalAuth } from "../middlewares/auth";
 
@@ -167,6 +167,13 @@ router.post("/posts/:id/react", requireAuth, async (req: Request, res: Response)
     return;
   }
 
+  // Check if user already reacted (to award points only on first reaction)
+  const [existingReaction] = await db
+    .select({ id: postReactionsTable.id })
+    .from(postReactionsTable)
+    .where(and(eq(postReactionsTable.postId, id), eq(postReactionsTable.userId, req.userId!)))
+    .limit(1);
+
   await db
     .insert(postReactionsTable)
     .values({ postId: id, userId: req.userId!, emoji: body.data.emoji })
@@ -174,6 +181,21 @@ router.post("/posts/:id/react", requireAuth, async (req: Request, res: Response)
       target: [postReactionsTable.postId, postReactionsTable.userId],
       set: { emoji: body.data.emoji },
     });
+
+  // Award +1 point to post author on a brand-new reaction (not reaction changes)
+  if (!existingReaction) {
+    const [post] = await db
+      .select({ userId: postsTable.userId })
+      .from(postsTable)
+      .where(eq(postsTable.id, id))
+      .limit(1);
+    if (post && post.userId !== req.userId) {
+      await Promise.all([
+        db.insert(pointsLogTable).values({ userId: post.userId, amount: 1, reason: "post_reaction" }),
+        db.update(usersTable).set({ points: sql`${usersTable.points} + 1` }).where(eq(usersTable.id, post.userId)),
+      ]);
+    }
+  }
 
   res.sendStatus(204);
 });

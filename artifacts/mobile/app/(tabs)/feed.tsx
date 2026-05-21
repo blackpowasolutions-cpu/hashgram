@@ -33,6 +33,31 @@ const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
   ? `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`
   : "/api";
 
+// Upload image to object storage and return a persistent public URL, or null on failure
+async function uploadImageToStorage(token: string, uri: string): Promise<string | null> {
+  try {
+    const blob = await fetch(uri).then((r) => r.blob());
+    const contentType = blob.type || "image/jpeg";
+    const metaRes = await fetch(`${API_BASE}/storage/uploads/request-url`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ name: "post-image.jpg", size: blob.size, contentType }),
+    });
+    if (!metaRes.ok) return null;
+    const { uploadURL, objectPath } = await metaRes.json();
+    if (!uploadURL || !objectPath) return null;
+    const uploadRes = await fetch(uploadURL, {
+      method: "PUT",
+      body: blob,
+      headers: { "Content-Type": contentType },
+    });
+    if (!uploadRes.ok) return null;
+    return `${API_BASE}/storage/public-objects/${objectPath}`;
+  } catch {
+    return null;
+  }
+}
+
 const EMOJI_TO_TYPE: Record<string, string> = {
   "👍": "like", "❤️": "love", "😂": "haha", "😮": "wow", "😢": "sad", "😡": "angry",
 };
@@ -646,6 +671,9 @@ export default function NewsFeedScreen() {
   const [scratchTarget, setScratchTarget] = useState<{ post: Post; prize: GiftCardPrize } | null>(null);
   const [scratchedMap, setScratchedMap] = useState<Record<string, GiftCardPrize>>({});
 
+  // Session-scoped cache: maps post ID → local image URI for images that haven't been uploaded yet
+  const localImageCache = useRef<Map<string, string>>(new Map());
+
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const bottomPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
 
@@ -734,8 +762,12 @@ export default function NewsFeedScreen() {
     setScratchTarget(null);
   }, [scratchTarget]);
 
-  const handleCreatePost = useCallback((content: string, image: string | null) => {
+  const handleCreatePost = useCallback(async (content: string, image: string | null) => {
     const tempId = `post_${Date.now()}`;
+
+    // Cache local image immediately so it shows even if upload fails
+    if (image) localImageCache.current.set(tempId, image);
+
     const newPost: Post = {
       id: tempId,
       user: {
@@ -754,17 +786,34 @@ export default function NewsFeedScreen() {
     };
     setPosts((prev) => [newPost, ...prev]);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
     if (token) {
+      // Try to upload image to object storage for a persistent public URL
+      let mediaUrl: string | undefined;
+      if (image) {
+        mediaUrl = (await uploadImageToStorage(token, image)) ?? undefined;
+      }
+
       fetch(`${API_BASE}/posts`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ content, mediaUrl: image ?? undefined }),
+        body: JSON.stringify({ content, mediaUrl }),
       })
         .then((r) => (r.ok ? r.json() : null))
         .then((data) => {
           if (data?.id) {
+            const realId = String(data.id);
+            // Migrate cache from temp ID to real ID
+            if (localImageCache.current.has(tempId)) {
+              localImageCache.current.set(realId, localImageCache.current.get(tempId)!);
+              localImageCache.current.delete(tempId);
+            }
             setPosts((prev) =>
-              prev.map((p) => (p.id === tempId ? { ...p, id: String(data.id) } : p))
+              prev.map((p) =>
+                p.id === tempId
+                  ? { ...p, id: realId, image: mediaUrl ?? p.image }
+                  : p
+              )
             );
           }
         })
@@ -831,17 +880,25 @@ export default function NewsFeedScreen() {
         data={posts}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => {
-          const isOwn = item.user.id === "me";
+          const isOwn = user?.id != null && String(item.user.id) === String(user.id);
+          // Use cached local image if the stored mediaUrl isn't a persistent HTTP URL
+          const cachedImg = localImageCache.current.get(item.id);
+          const resolvedImage =
+            cachedImg ??
+            (typeof item.image === "string" && item.image.startsWith("http")
+              ? item.image
+              : undefined);
+          const post = resolvedImage !== item.image ? { ...item, image: resolvedImage } : item;
           return (
             <PostCard
-              post={item}
+              post={post}
               onReact={handleReact}
               colors={colors}
               isOwnPost={isOwn}
               isScratched={!!scratchedMap[item.id]}
               scratchedPrize={scratchedMap[item.id] ?? null}
               onScratchReady={() => handleScratchReady(item)}
-              onAvatarPress={item.user.id === "me" ? undefined : () =>
+              onAvatarPress={isOwn ? undefined : () =>
                 router.push({ pathname: "/user/[userId]" as any, params: { userId: item.user.id } })
               }
             />

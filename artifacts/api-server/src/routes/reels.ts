@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { eq, sql, and, desc } from "drizzle-orm";
-import { db, usersTable, reelsTable, reelLikesTable } from "@workspace/db";
+import { db, usersTable, reelsTable, reelLikesTable, pointsLogTable } from "@workspace/db";
 import { ListReelsQueryParams, CreateReelBody, GetReelParams, DeleteReelParams, LikeReelParams, UnlikeReelParams, ViewReelParams } from "@workspace/api-zod";
 import { requireAuth, optionalAuth } from "../middlewares/auth";
 
@@ -237,10 +237,32 @@ router.post("/reels/:id/like", requireAuth, async (req: Request, res: Response):
   }
   const { id } = params.data;
 
+  // Check if already liked to avoid duplicate point awards
+  const [existingLike] = await db
+    .select({ id: reelLikesTable.id })
+    .from(reelLikesTable)
+    .where(and(eq(reelLikesTable.reelId, id), eq(reelLikesTable.userId, req.userId!)))
+    .limit(1);
+
   await db
     .insert(reelLikesTable)
     .values({ reelId: id, userId: req.userId! })
     .onConflictDoNothing();
+
+  // Award +1 point to reel creator on new like
+  if (!existingLike) {
+    const [reel] = await db
+      .select({ userId: reelsTable.userId })
+      .from(reelsTable)
+      .where(eq(reelsTable.id, id))
+      .limit(1);
+    if (reel && reel.userId !== req.userId) {
+      await Promise.all([
+        db.insert(pointsLogTable).values({ userId: reel.userId, amount: 1, reason: "reel_like" }),
+        db.update(usersTable).set({ points: sql`${usersTable.points} + 1` }).where(eq(usersTable.id, reel.userId)),
+      ]);
+    }
+  }
 
   res.sendStatus(204);
 });
@@ -260,7 +282,7 @@ router.delete("/reels/:id/like", requireAuth, async (req: Request, res: Response
   res.sendStatus(204);
 });
 
-router.post("/reels/:id/view", async (req: Request, res: Response): Promise<void> => {
+router.post("/reels/:id/view", optionalAuth, async (req: Request, res: Response): Promise<void> => {
   const params = ViewReelParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: "Invalid reel ID" });
@@ -268,11 +290,30 @@ router.post("/reels/:id/view", async (req: Request, res: Response): Promise<void
   }
   const { id } = params.data;
 
-  await db
-    .update(reelsTable)
-    .set({ views: sql`${reelsTable.views} + 1` })
-    .where(eq(reelsTable.id, id));
+  const [reel] = await db
+    .select({ userId: reelsTable.userId })
+    .from(reelsTable)
+    .where(eq(reelsTable.id, id))
+    .limit(1);
 
+  if (!reel) {
+    res.sendStatus(204);
+    return;
+  }
+
+  const ops: Promise<unknown>[] = [
+    db.update(reelsTable).set({ views: sql`${reelsTable.views} + 1` }).where(eq(reelsTable.id, id)),
+  ];
+
+  // Award +1 point to the viewer (logged-in users) for watching reels
+  if (req.userId && req.userId !== reel.userId) {
+    ops.push(
+      db.insert(pointsLogTable).values({ userId: req.userId, amount: 1, reason: "reel_play" }),
+      db.update(usersTable).set({ points: sql`${usersTable.points} + 1` }).where(eq(usersTable.id, req.userId))
+    );
+  }
+
+  await Promise.all(ops);
   res.sendStatus(204);
 });
 
