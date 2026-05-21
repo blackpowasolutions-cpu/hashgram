@@ -59,6 +59,7 @@
     "expo-av": "^16.0.8",
     "expo-document-picker": "^14.0.8",
     "expo-notifications": "^0.32.17",
+    "expo-video-thumbnails": "^56.0.3",
     "socket.io-client": "^4.8.3"
   }
 }

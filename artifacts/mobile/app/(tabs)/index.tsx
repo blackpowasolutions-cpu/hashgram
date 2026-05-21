@@ -4,6 +4,7 @@ import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { ResizeMode, Video } from "expo-av";
+import * as VideoThumbnails from "expo-video-thumbnails";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
@@ -957,9 +958,40 @@ export default function FeedScreen() {
     setComposerHashtags("");
   }, []);
 
+  // Upload a local file URI to object storage; returns the serving URL or null on failure.
+  const uploadToStorage = useCallback(async (localUri: string, contentType: string): Promise<string | null> => {
+    if (!token) return null;
+    try {
+      // Step 1: request a presigned upload URL
+      const urlRes = await fetch(`${API_BASE}/storage/uploads/request-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: `upload_${Date.now()}`, size: 0, contentType }),
+      });
+      if (!urlRes.ok) return null;
+      const { uploadURL, objectPath } = await urlRes.json();
+
+      // Step 2: fetch the local file as a blob and PUT it to GCS
+      const fileRes = await fetch(localUri);
+      const blob = await fileRes.blob();
+      const putRes = await fetch(uploadURL, {
+        method: "PUT",
+        headers: { "Content-Type": contentType },
+        body: blob,
+      });
+      if (!putRes.ok) return null;
+
+      // Step 3: construct the serving URL — objectPath is "/objects/<uuid>"
+      return `${API_BASE}/storage${objectPath}`;
+    } catch {
+      return null;
+    }
+  }, [token]);
+
   const publishReel = useCallback(async () => {
     if (!pendingVideoUri || publishing) return;
     setPublishing(true);
+
     // Build description: caption + normalized hashtags
     const caption = composerCaption.trim();
     const hashtags = composerHashtags
@@ -969,6 +1001,16 @@ export default function FeedScreen() {
       .map((t) => `#${t}`)
       .join(" ");
     const description = [caption, hashtags].filter(Boolean).join(" ").trim() || "My new reel 🎬";
+
+    // Generate thumbnail from the video (1 second in)
+    let thumbnailUri: string | null = null;
+    try {
+      const thumb = await VideoThumbnails.getThumbnailAsync(pendingVideoUri, { time: 1000, quality: 0.7 });
+      thumbnailUri = thumb.uri;
+    } catch {}
+
+    // Upload thumbnail to object storage
+    const thumbnailUrl = thumbnailUri ? await uploadToStorage(thumbnailUri, "image/jpeg") : null;
 
     const tempId = `user_${Date.now()}`;
     const newReel: Reel = {
@@ -982,6 +1024,7 @@ export default function FeedScreen() {
       shares: 0,
       views: 0,
       likedByMe: false,
+      image: thumbnailUrl ? ({ uri: thumbnailUrl } as any) : undefined,
       videoUri: pendingVideoUri,
       music: "Original Sound",
       avatarColor: "#FF6B9D",
@@ -1002,7 +1045,8 @@ export default function FeedScreen() {
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({
             description,
-            mediaUrl: newReel.videoUri,
+            mediaUrl: pendingVideoUri,
+            thumbnailUrl: thumbnailUrl ?? undefined,
             music: "Original Sound",
           }),
         });
@@ -1017,7 +1061,7 @@ export default function FeedScreen() {
       } catch {}
     }
     setPublishing(false);
-  }, [pendingVideoUri, publishing, composerCaption, composerHashtags, user, token]);
+  }, [pendingVideoUri, publishing, composerCaption, composerHashtags, user, token, uploadToStorage]);
 
   return (
     <View style={styles.container}>
