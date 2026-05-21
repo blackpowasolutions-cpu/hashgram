@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { eq, sql, and } from "drizzle-orm";
-import { db, usersTable, followsTable, reelsTable, postsTable } from "@workspace/db";
+import { db, usersTable, followsTable, reelsTable, postsTable, pointsLogTable } from "@workspace/db";
 import { GetUserParams, UpdateUserParams, UpdateUserBody, DeleteUserParams, FollowUserParams, UnfollowUserParams, GetUserFollowersParams, GetUserFollowingParams, GetUserReelsParams, GetUserPostsParams } from "@workspace/api-zod";
 import { requireAuth, optionalAuth } from "../middlewares/auth";
 
@@ -281,6 +281,21 @@ router.get("/users/:id/posts", async (req: Request, res: Response): Promise<void
       myReaction: null,
     }))
   );
+});
+
+router.get("/me/points-breakdown", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const rows = await db
+    .select({
+      reason: pointsLogTable.reason,
+      total: sql<number>`sum(${pointsLogTable.amount})::int`,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(pointsLogTable)
+    .where(eq(pointsLogTable.userId, req.userId!))
+    .groupBy(pointsLogTable.reason)
+    .orderBy(sql`sum(${pointsLogTable.amount}) desc`);
+
+  res.json(rows);
 });
 
 export default router;

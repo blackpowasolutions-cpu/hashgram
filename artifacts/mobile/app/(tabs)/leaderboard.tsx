@@ -1,9 +1,9 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
+  Animated,
   Dimensions,
   Platform,
   Pressable,
@@ -115,6 +115,21 @@ const METRICS: { key: string; label: string; icon: string; pts: number }[] = [
   { key: "shares",   label: "Posts Shared",        icon: "share-2",        pts: 1 },
 ];
 
+const REASON_META: Record<string, { label: string; icon: string; color: string }> = {
+  login:          { label: "Daily Login",         icon: "log-in",         color: "#F9C74F" },
+  reel_play:      { label: "Reels Played",        icon: "play",           color: "#4D96FF" },
+  reel_like:      { label: "Likes Received",      icon: "heart",          color: "#FE2C55" },
+  post_reaction:  { label: "Reactions Received",  icon: "smile",          color: "#C77DFF" },
+  reel_upload:    { label: "Reels Uploaded",      icon: "video",          color: "#6BCB77" },
+  profile_visit:  { label: "Profile Visits",      icon: "user",           color: "#25F4EE" },
+  post_share:     { label: "Posts Shared",        icon: "share-2",        color: "#FF8C42" },
+  gift_purchase:  { label: "Gift Purchased",      icon: "gift",           color: "#90BE6D" },
+};
+
+interface BreakdownRow { reason: string; total: number; count: number; }
+
+interface ApiBreakdownRow { reason: string; total: number; count: number; }
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function LeaderboardScreen() {
@@ -126,6 +141,10 @@ export default function LeaderboardScreen() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [lbEntries, setLbEntries] = useState<ApiLeaderboardEntry[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [myRankExpanded, setMyRankExpanded] = useState(false);
+  const [breakdown, setBreakdown] = useState<BreakdownRow[]>([]);
+  const [breakdownLoading, setBreakdownLoading] = useState(false);
+  const expandAnim = useRef(new Animated.Value(0)).current;
 
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const bottomPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
@@ -143,6 +162,34 @@ export default function LeaderboardScreen() {
     } catch {}
     setRefreshing(false);
   }, [token]);
+
+  const fetchBreakdown = useCallback(async () => {
+    if (!token) return;
+    setBreakdownLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_LB}/me/points-breakdown`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data: ApiBreakdownRow[] = await res.json();
+        setBreakdown(Array.isArray(data) ? data : []);
+      }
+    } catch {}
+    setBreakdownLoading(false);
+  }, [token]);
+
+  const toggleMyRank = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const next = !myRankExpanded;
+    setMyRankExpanded(next);
+    if (next && breakdown.length === 0) fetchBreakdown();
+    Animated.spring(expandAnim, {
+      toValue: next ? 1 : 0,
+      useNativeDriver: false,
+      tension: 80,
+      friction: 12,
+    }).start();
+  }, [myRankExpanded, breakdown.length, fetchBreakdown, expandAnim]);
 
   useEffect(() => {
     fetchLeaderboard(period);
@@ -336,24 +383,56 @@ export default function LeaderboardScreen() {
         </View>
       </ScrollView>
 
-      {/* My Rank — pinned at bottom, always shows all-time level */}
-      <View style={[styles.myRankBar, {
+      {/* My Rank — pinned at bottom */}
+      <View style={[styles.myRankWrap, {
         backgroundColor: colors.card,
         borderTopColor: colors.border,
         paddingBottom: bottomPad + 70,
       }]}>
-        <View style={[styles.myRankLeft, { backgroundColor: myLevel.color + "22", borderRadius: 10, padding: 6 }]}>
-          <Feather name="award" size={18} color={myLevel.color} />
-        </View>
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text style={[styles.myRankLabel, { color: colors.mutedForeground }]}>Your rank</Text>
+        {/* Expandable breakdown panel */}
+        {myRankExpanded && (
+          <View style={[styles.breakdownPanel, { borderBottomColor: colors.border, backgroundColor: colors.background }]}>
+            <Text style={[styles.breakdownPanelTitle, { color: colors.mutedForeground }]}>Points Breakdown</Text>
+            {breakdownLoading ? (
+              <View style={{ paddingVertical: 12, alignItems: "center" }}>
+                <Text style={[{ fontSize: 12, color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>Loading…</Text>
+              </View>
+            ) : breakdown.length === 0 ? (
+              <Text style={[styles.breakdownEmpty, { color: colors.mutedForeground }]}>No points earned yet — watch reels, log in daily, and get likes!</Text>
+            ) : (
+              breakdown.map((row) => {
+                const meta = REASON_META[row.reason] ?? { label: row.reason, icon: "star", color: "#aaa" };
+                return (
+                  <View key={row.reason} style={[styles.breakdownRow, { borderBottomColor: colors.border }]}>
+                    <View style={[styles.breakdownIcon, { backgroundColor: meta.color + "22" }]}>
+                      <Feather name={meta.icon as any} size={13} color={meta.color} />
+                    </View>
+                    <Text style={[styles.breakdownRowLabel, { color: colors.foreground }]}>{meta.label}</Text>
+                    <Text style={[styles.breakdownRowCount, { color: colors.mutedForeground }]}>×{row.count}</Text>
+                    <Text style={[styles.breakdownRowPts, { color: "#FE2C55" }]}>+{formatPoints(row.total)} pts</Text>
+                  </View>
+                );
+              })
+            )}
+          </View>
+        )}
+
+        {/* Compact bar */}
+        <Pressable style={styles.myRankBar} onPress={toggleMyRank} android_ripple={{ color: colors.muted }}>
+          <View style={[styles.myRankAvatar, { backgroundColor: myLevel.color + "22" }]}>
+            <Feather name="award" size={15} color={myLevel.color} />
+          </View>
           <Text style={[styles.myRankName, { color: colors.foreground }]}>{user?.username ?? "@you"}</Text>
           <LevelBadge points={userPoints} size="small" />
-        </View>
-        <View style={{ alignItems: "flex-end" }}>
+          <View style={{ flex: 1 }} />
+          <Text style={[styles.myRankNum, { color: colors.mutedForeground }]}>#{myRank}</Text>
           <Text style={[styles.myRankPts, { color: "#FE2C55" }]}>{formatPoints(userPoints)} pts</Text>
-          <Text style={[styles.myRankNum, { color: colors.mutedForeground }]}>#{myRank} overall</Text>
-        </View>
+          <Feather
+            name={myRankExpanded ? "chevron-down" : "chevron-up"}
+            size={15}
+            color={colors.mutedForeground}
+          />
+        </Pressable>
       </View>
     </View>
   );
@@ -601,33 +680,88 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: "Inter_700Bold",
   },
-  myRankBar: {
+  myRankWrap: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
+    borderTopWidth: 1,
+  },
+  myRankBar: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    gap: 8,
   },
-  myRankLeft: {},
-  myRankLabel: {
-    fontSize: 11,
-    fontFamily: "Inter_400Regular",
+  myRankAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
   },
   myRankName: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: "Inter_600SemiBold",
   },
   myRankPts: {
-    fontSize: 15,
+    fontSize: 13,
     fontFamily: "Inter_700Bold",
   },
   myRankNum: {
     fontSize: 12,
     fontFamily: "Inter_400Regular",
+    marginRight: 4,
+  },
+  breakdownPanel: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 6,
+  },
+  breakdownPanelTitle: {
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    marginBottom: 8,
+  },
+  breakdownRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 7,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  breakdownIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  breakdownRowLabel: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+  },
+  breakdownRowCount: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    minWidth: 28,
+    textAlign: "right",
+  },
+  breakdownRowPts: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    minWidth: 56,
+    textAlign: "right",
+  },
+  breakdownEmpty: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 18,
+    paddingBottom: 8,
   },
 });
