@@ -1,90 +1,164 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 
+const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
+  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`
+  : "/api";
+
 export interface User {
   id: string;
   username: string;
   displayName: string;
-  bio: string;
+  email: string;
+  bio?: string;
   website?: string;
+  avatarUri?: string;
+  avatarUrl?: string;
   followers: number;
   following: number;
   likes: number;
-  avatarUri?: string;
+  points?: number;
+  role?: string;
 }
 
 interface AuthContextType {
   user: User | null;
+  token: string | null;
   isLoading: boolean;
-  login: (username: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (
+    email: string,
+    username: string,
+    displayName: string,
+    password: string
+  ) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const STORAGE_KEY = "@reels_auth_user";
+const TOKEN_KEY = "@reels_auth_token";
+const USER_KEY = "@reels_auth_user_v2";
 
-const MOCK_USERS: Record<string, { password: string; user: User }> = {
-  demo: {
-    password: "password",
-    user: {
-      id: "1",
-      username: "@demo",
-      displayName: "Demo User",
-      bio: "Creating awesome content every day 🎬",
-      followers: 12400,
-      following: 348,
-      likes: 89000,
-    },
-  },
-};
+function mapApiUser(apiUser: Record<string, unknown>): User {
+  const username = String(apiUser.username ?? "");
+  return {
+    id: String(apiUser.id ?? ""),
+    username: username.startsWith("@") ? username : `@${username}`,
+    displayName: String(apiUser.displayName ?? ""),
+    email: String(apiUser.email ?? ""),
+    bio: apiUser.bio ? String(apiUser.bio) : "",
+    website: apiUser.website ? String(apiUser.website) : undefined,
+    avatarUri: apiUser.avatarUrl ? String(apiUser.avatarUrl) : undefined,
+    avatarUrl: apiUser.avatarUrl ? String(apiUser.avatarUrl) : undefined,
+    followers: 0,
+    following: 0,
+    likes: 0,
+    points: typeof apiUser.points === "number" ? apiUser.points : 0,
+    role: apiUser.role ? String(apiUser.role) : "user",
+  };
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then((stored) => {
-      if (stored) {
-        try {
-          setUser(JSON.parse(stored));
-        } catch {
-          // ignore
+    (async () => {
+      try {
+        const storedToken = await AsyncStorage.getItem(TOKEN_KEY);
+        if (storedToken) {
+          const res = await fetch(`${API_BASE}/auth/me`, {
+            headers: { Authorization: `Bearer ${storedToken}` },
+          });
+          if (res.ok) {
+            const apiUser = await res.json();
+            const mapped = mapApiUser(apiUser);
+            setToken(storedToken);
+            setUser(mapped);
+          } else {
+            await AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY]);
+          }
         }
+      } catch {
+        const [storedUserRaw, storedToken] = await Promise.all([
+          AsyncStorage.getItem(USER_KEY),
+          AsyncStorage.getItem(TOKEN_KEY),
+        ]);
+        if (storedUserRaw && storedToken) {
+          try {
+            setUser(JSON.parse(storedUserRaw));
+            setToken(storedToken);
+          } catch {
+            // corrupted cache — ignore
+          }
+        }
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
-    });
+    })();
   }, []);
 
-  const login = useCallback(async (username: string, password: string): Promise<boolean> => {
-    const key = username.toLowerCase().replace("@", "");
-    const entry = MOCK_USERS[key];
-    if (!entry || entry.password !== password) {
-      // Allow any non-empty login for demo purposes
-      if (username.trim() && password.trim()) {
-        const newUser: User = {
-          id: Date.now().toString(),
-          username: `@${username.toLowerCase().replace(/\s+/g, "")}`,
-          displayName: username.trim(),
-          bio: "Just joined Reels! 🎬",
-          followers: 0,
-          following: 0,
-          likes: 0,
-        };
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newUser));
-        setUser(newUser);
-        return true;
+  const login = useCallback(
+    async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+      try {
+        const res = await fetch(`${API_BASE}/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          return { success: false, error: data.error ?? "Login failed. Please try again." };
+        }
+        const mapped = mapApiUser(data.user);
+        await AsyncStorage.setItem(TOKEN_KEY, data.token);
+        await AsyncStorage.setItem(USER_KEY, JSON.stringify(mapped));
+        setToken(data.token);
+        setUser(mapped);
+        return { success: true };
+      } catch {
+        return { success: false, error: "Network error. Please check your connection." };
       }
-      return false;
-    }
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(entry.user));
-    setUser(entry.user);
-    return true;
-  }, []);
+    },
+    []
+  );
+
+  const register = useCallback(
+    async (
+      email: string,
+      username: string,
+      displayName: string,
+      password: string
+    ): Promise<{ success: boolean; error?: string }> => {
+      try {
+        const res = await fetch(`${API_BASE}/auth/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, username, displayName, password }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          return { success: false, error: data.error ?? "Registration failed. Please try again." };
+        }
+        const mapped = mapApiUser(data.user);
+        await AsyncStorage.setItem(TOKEN_KEY, data.token);
+        await AsyncStorage.setItem(USER_KEY, JSON.stringify(mapped));
+        setToken(data.token);
+        setUser(mapped);
+        return { success: true };
+      } catch {
+        return { success: false, error: "Network error. Please check your connection." };
+      }
+    },
+    []
+  );
 
   const logout = useCallback(async () => {
-    await AsyncStorage.removeItem(STORAGE_KEY);
+    await AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY]);
+    setToken(null);
     setUser(null);
   }, []);
 
@@ -92,13 +166,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser((prev) => {
       if (!prev) return prev;
       const updated = { ...prev, ...updates };
-      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      AsyncStorage.setItem(USER_KEY, JSON.stringify(updated)).catch(() => {});
       return updated;
     });
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

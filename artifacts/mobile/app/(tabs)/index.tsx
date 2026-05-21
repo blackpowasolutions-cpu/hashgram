@@ -59,43 +59,7 @@ function isGift(item: ListItem): item is GiftItem {
 
 // ─── Static data ──────────────────────────────────────────────────────────────
 
-const REELS: Reel[] = [
-  {
-    id: "1", userId: "1", user: "@dancequeen", displayName: "Dance Queen",
-    description: "New choreography drop! This took 3 weeks to perfect 🔥 #dance #fyp #trending",
-    likes: 482000, comments: 12030, shares: 8920, views: 2100000,
-    image: require("../../assets/images/reel1.png"),
-    music: "Original Sound - dancequeen", avatarColor: "#FF6B9D",
-  },
-  {
-    id: "2", userId: "4", user: "@streetfoodking", displayName: "Street Food King",
-    description: "Secret recipe my grandma taught me 👨‍🍳 The best noodles you'll ever taste #food #cooking",
-    likes: 271000, comments: 5400, shares: 3100, views: 980000,
-    image: require("../../assets/images/reel2.png"),
-    music: "Cooking Vibes - lofi beats", avatarColor: "#FF8C42",
-  },
-  {
-    id: "3", userId: "2", user: "@sk8er_pro", displayName: "Sk8er Pro",
-    description: "Landed this trick after 200 tries 🛹 Never give up on your dreams #skateboarding",
-    likes: 893000, comments: 23100, shares: 15600, views: 3800000,
-    image: require("../../assets/images/reel3.png"),
-    music: "Skateboarding Mix - punk radio", avatarColor: "#6BCB77",
-  },
-  {
-    id: "4", userId: "3", user: "@wanderlust", displayName: "Wanderlust",
-    description: "Found this hidden spot after 6 hours of hiking 🏔️ Worth every step #travel",
-    likes: 1200000, comments: 31000, shares: 22000, views: 5600000,
-    image: require("../../assets/images/reel4.png"),
-    music: "Mountain Air - ambient sounds", avatarColor: "#4D96FF",
-  },
-  {
-    id: "5", userId: "5", user: "@stylequeen", displayName: "Style Queen",
-    description: "GRWM for my coffee date ☕ Outfit details in bio! #fashion #ootd #style",
-    likes: 567000, comments: 18200, shares: 9800, views: 2400000,
-    image: require("../../assets/images/reel5.png"),
-    music: "Aesthetic Vibes - chill playlist", avatarColor: "#C77DFF",
-  },
-];
+const REELS: Reel[] = [];
 
 const GIFT_PRIZES = [
   { emoji: "🎵", title: "Spotify Gift Card",      value: "$5 free",    color: "#1DB954" },
@@ -500,6 +464,17 @@ export default function FeedScreen() {
         viewabilityConfig={viewabilityConfig.current}
         scrollEnabled={listData.length > 0}
         getItemLayout={(_, index) => ({ length: height, offset: height * index, index })}
+        ListEmptyComponent={
+          <View style={[styles.emptyState, { height, paddingBottom: bottomPad + 80 }]}>
+            <Feather name="video" size={52} color="rgba(255,255,255,0.18)" />
+            <Text style={styles.emptyTitle}>No reels yet</Text>
+            <Text style={styles.emptySubtitle}>Be the first to share a reel!</Text>
+            <TouchableOpacity style={styles.emptyUploadBtn} onPress={handleUpload} activeOpacity={0.8}>
+              <Feather name="plus" size={16} color="#fff" />
+              <Text style={styles.emptyUploadText}>Upload your first reel</Text>
+            </TouchableOpacity>
+          </View>
+        }
       />
     </View>
   );
@@ -759,6 +734,42 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.3)",
     fontSize: 12,
     fontFamily: "Inter_400Regular",
+  },
+
+  // Empty state
+  emptyState: {
+    width,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
+  emptyTitle: {
+    color: "rgba(255,255,255,0.55)",
+    fontSize: 20,
+    fontFamily: "Inter_600SemiBold",
+    marginTop: 4,
+  },
+  emptySubtitle: {
+    color: "rgba(255,255,255,0.28)",
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  emptyUploadBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#FE2C55",
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    borderRadius: 24,
+    marginTop: 4,
+  },
+  emptyUploadText: {
+    color: "#fff",
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
   },
 
   // Sparkle decorations

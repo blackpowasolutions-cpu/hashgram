@@ -25,8 +25,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ScratchCard, { GiftCardPrize, PRIZES } from "@/components/ScratchCard";
 import { useAuth } from "@/context/AuthContext";
 import {
-  APP_USERS,
-  USER_REELS,
   useSocial,
   type AppUser,
 } from "@/context/SocialContext";
