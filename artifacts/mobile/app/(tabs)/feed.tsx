@@ -52,7 +52,8 @@ async function uploadImageToStorage(token: string, uri: string): Promise<string 
       headers: { "Content-Type": contentType },
     });
     if (!uploadRes.ok) return null;
-    return `${API_BASE}/storage/public-objects/${objectPath}`;
+    // objectPath is "/objects/<uuid>" — serve via the objects endpoint
+    return `${API_BASE}/storage${objectPath}`;
   } catch {
     return null;
   }
@@ -885,7 +886,9 @@ export default function NewsFeedScreen() {
           const cachedImg = localImageCache.current.get(item.id);
           const resolvedImage =
             cachedImg ??
-            (typeof item.image === "string" && item.image.startsWith("http")
+            (typeof item.image === "string" &&
+              !item.image.startsWith("file://") &&
+              !item.image.startsWith("blob:")
               ? item.image
               : undefined);
           const post = resolvedImage !== item.image ? { ...item, image: resolvedImage } : item;
