@@ -59,3 +59,13 @@ export const insertPointsLogSchema = createInsertSchema(pointsLogTable).omit({
 });
 export type InsertPointsLog = z.infer<typeof insertPointsLogSchema>;
 export type PointsLog = typeof pointsLogTable.$inferSelect;
+
+export const rewardConfigTable = pgTable("reward_config", {
+  id: serial("id").primaryKey(),
+  reelsScrollInterval: integer("reels_scroll_interval").notNull().default(4),
+  postLikesThreshold: integer("post_likes_threshold").notNull().default(100),
+  reelPlaysThreshold: integer("reel_plays_threshold").notNull().default(100),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
+export type RewardConfig = typeof rewardConfigTable.$inferSelect;

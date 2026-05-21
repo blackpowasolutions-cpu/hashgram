@@ -546,6 +546,31 @@ export const AwardPointsResponse = zod.object({
 })
 
 
+export const GetRewardConfigResponse = zod.object({
+  "reelsScrollInterval": zod.number().describe('Gift card injected into reel feed after every N reels scrolled'),
+  "postLikesThreshold": zod.number().describe('Number of post likes needed before the newsfeed scratch card unlocks'),
+  "reelPlaysThreshold": zod.number().describe('Number of reel plays needed before a profile scratch card unlocks')
+})
+
+
+
+
+
+
+
+export const UpdateRewardConfigBody = zod.object({
+  "reelsScrollInterval": zod.number().min(1).optional(),
+  "postLikesThreshold": zod.number().min(1).optional(),
+  "reelPlaysThreshold": zod.number().min(1).optional()
+})
+
+export const UpdateRewardConfigResponse = zod.object({
+  "reelsScrollInterval": zod.number().describe('Gift card injected into reel feed after every N reels scrolled'),
+  "postLikesThreshold": zod.number().describe('Number of post likes needed before the newsfeed scratch card unlocks'),
+  "reelPlaysThreshold": zod.number().describe('Number of reel plays needed before a profile scratch card unlocks')
+})
+
+
 export const getLeaderboardQueryPeriodDefault = `alltime`;
 export const getLeaderboardQueryLimitDefault = 10;
 

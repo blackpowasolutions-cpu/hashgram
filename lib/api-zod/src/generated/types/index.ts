@@ -50,6 +50,8 @@ export * from './reelCommentList';
 export * from './reelInput';
 export * from './reelList';
 export * from './registerInput';
+export * from './rewardConfig';
+export * from './rewardConfigUpdate';
 export * from './roleUpdate';
 export * from './roleUpdateRole';
 export * from './suspendInput';

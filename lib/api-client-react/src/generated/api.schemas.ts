@@ -389,6 +389,24 @@ export interface UploadResponse {
   objectPath: string;
 }
 
+export interface RewardConfig {
+  /** Gift card injected into reel feed after every N reels scrolled */
+  reelsScrollInterval: number;
+  /** Number of post likes needed before the newsfeed scratch card unlocks */
+  postLikesThreshold: number;
+  /** Number of reel plays needed before a profile scratch card unlocks */
+  reelPlaysThreshold: number;
+}
+
+export interface RewardConfigUpdate {
+  /** @minimum 1 */
+  reelsScrollInterval?: number;
+  /** @minimum 1 */
+  postLikesThreshold?: number;
+  /** @minimum 1 */
+  reelPlaysThreshold?: number;
+}
+
 export type ListReelsParams = {
 page?: number;
 limit?: number;

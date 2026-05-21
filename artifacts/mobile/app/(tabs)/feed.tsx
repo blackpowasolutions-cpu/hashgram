@@ -25,6 +25,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/context/AuthContext";
 import type { User } from "@/context/AuthContext";
 import ScratchCard, { PRIZES, type GiftCardPrize } from "@/components/ScratchCard";
+import { useRewardConfig } from "@/context/RewardConfigContext";
 import { useColors } from "@/hooks/useColors";
 
 const { width } = Dimensions.get("window");
@@ -120,7 +121,6 @@ interface Post {
   shares: number;
 }
 
-const LIKES_MILESTONE = 100;
 
 const INITIAL_POSTS: Post[] = [];
 
@@ -160,8 +160,9 @@ function LikesProgressBar({
   onTapReady: () => void;
   colors: ReturnType<typeof useColors>;
 }) {
-  const progress = Math.min(likesCount, LIKES_MILESTONE) / LIKES_MILESTONE;
-  const isReady = likesCount >= LIKES_MILESTONE;
+  const { postLikesThreshold } = useRewardConfig();
+  const progress = Math.min(likesCount, postLikesThreshold) / postLikesThreshold;
+  const isReady = likesCount >= postLikesThreshold;
 
   const barAnim = useRef(new Animated.Value(progress)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -170,12 +171,12 @@ function LikesProgressBar({
 
   React.useEffect(() => {
     Animated.spring(barAnim, {
-      toValue: Math.min(likesCount, LIKES_MILESTONE) / LIKES_MILESTONE,
+      toValue: Math.min(likesCount, postLikesThreshold) / postLikesThreshold,
       tension: 80,
       friction: 10,
       useNativeDriver: false,
     }).start();
-  }, [likesCount]);
+  }, [likesCount, postLikesThreshold]);
 
   React.useEffect(() => {
     if (isReady && !isScratched) {
@@ -278,11 +279,11 @@ function LikesProgressBar({
         <View style={styles.likesBarLeft}>
           <Text style={{ fontSize: 13 }}>❤️</Text>
           <Text style={[styles.likesBarLabel, { color: colors.mutedForeground }]}>
-            {likesCount} / {LIKES_MILESTONE} likes
+            {likesCount} / {postLikesThreshold} likes
           </Text>
         </View>
         <Text style={[styles.likesBarHint, { color: colors.mutedForeground }]}>
-          🎁 scratch card at {LIKES_MILESTONE}
+          🎁 scratch card at {postLikesThreshold}
         </Text>
       </View>
       <View style={[styles.likesTrack, { backgroundColor: colors.muted }]}>

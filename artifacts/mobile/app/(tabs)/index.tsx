@@ -29,6 +29,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/context/AuthContext";
 import { useMessages } from "@/context/MessagesContext";
+import { useRewardConfig } from "@/context/RewardConfigContext";
 import { useSocial } from "@/context/SocialContext";
 
 const { width, height } = Dimensions.get("window");
@@ -817,6 +818,7 @@ export default function FeedScreen() {
   const { conversations } = useMessages();
   const totalUnread = conversations.reduce((s, c) => s + c.unreadCount, 0);
   const { isFollowing } = useSocial();
+  const { reelsScrollInterval } = useRewardConfig();
   const [feedTab, setFeedTab] = useState<"forYou" | "following">("forYou");
   const [reels, setReels] = useState<Reel[]>(REELS);
   const [refreshing, setRefreshing] = useState(false);
@@ -911,17 +913,18 @@ export default function FeedScreen() {
   }, [reels, feedTab, isFollowing]);
 
   const listData = useMemo<ListItem[]>(() => {
+    const interval = Math.max(1, reelsScrollInterval);
     const result: ListItem[] = [];
     visibleReels.forEach((reel, i) => {
       result.push(reel);
-      if ((i + 1) % 4 === 0) {
-        const prizeIndex = Math.floor(i / 4) % GIFT_PRIZES.length;
+      if ((i + 1) % interval === 0) {
+        const prizeIndex = Math.floor(i / interval) % GIFT_PRIZES.length;
         const prize = GIFT_PRIZES[prizeIndex];
         if (prize) result.push({ type: "gift", id: `gift_${i}`, prize });
       }
     });
     return result;
-  }, [visibleReels]);
+  }, [visibleReels, reelsScrollInterval]);
 
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {

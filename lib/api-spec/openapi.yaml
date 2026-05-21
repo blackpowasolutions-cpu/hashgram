@@ -719,6 +719,36 @@ paths:
               schema:
                 $ref: "#/components/schemas/PointsBalance"
 
+  /store/reward-config:
+    get:
+      operationId: getRewardConfig
+      tags: [store]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RewardConfig"
+    patch:
+      operationId: updateRewardConfig
+      tags: [store]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RewardConfigUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RewardConfig"
+
   # ── Leaderboard ──────────────────────────────────────────────────────────────
   /leaderboard:
     get:
@@ -1643,4 +1673,32 @@ components:
           type: string
         objectPath:
           type: string
+
+    # ── Reward Config ──────────────────────────────────────────────────────────
+    RewardConfig:
+      type: object
+      required: [reelsScrollInterval, postLikesThreshold, reelPlaysThreshold]
+      properties:
+        reelsScrollInterval:
+          type: integer
+          description: Gift card injected into reel feed after every N reels scrolled
+        postLikesThreshold:
+          type: integer
+          description: Number of post likes needed before the newsfeed scratch card unlocks
+        reelPlaysThreshold:
+          type: integer
+          description: Number of reel plays needed before a profile scratch card unlocks
+
+    RewardConfigUpdate:
+      type: object
+      properties:
+        reelsScrollInterval:
+          type: integer
+          minimum: 1
+        postLikesThreshold:
+          type: integer
+          minimum: 1
+        reelPlaysThreshold:
+          type: integer
+          minimum: 1
 

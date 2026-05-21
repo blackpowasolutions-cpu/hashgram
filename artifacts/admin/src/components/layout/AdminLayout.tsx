@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Users, Video, ShoppingBag, Trophy, LogOut, Newspaper, Ticket, ChevronDown, ChevronRight } from "lucide-react";
+import { LayoutDashboard, Users, Video, ShoppingBag, Trophy, LogOut, Newspaper, Ticket, Settings2, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -16,13 +16,14 @@ const REWARDS_ITEMS = [
   { name: "Reels Store", href: "/store/reels", icon: ShoppingBag },
   { name: "Newsfeed Gifts", href: "/store/newsfeed", icon: Newspaper },
   { name: "Scratch Cards", href: "/store/scratch", icon: Ticket },
+  { name: "Reward Settings", href: "/rewards/settings", icon: Settings2 },
 ];
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, logout, isAuthenticated, isLoading } = useAuth();
   const [location, setLocation] = useLocation();
 
-  const rewardsActive = location.startsWith("/store");
+  const rewardsActive = location.startsWith("/store") || location.startsWith("/rewards");
   const [rewardsOpen, setRewardsOpen] = useState(rewardsActive);
 
   React.useEffect(() => {

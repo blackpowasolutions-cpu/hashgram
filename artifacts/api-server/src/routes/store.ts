@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { eq, and, sql } from "drizzle-orm";
-import { db, usersTable, giftCardsTable, giftPurchasesTable, pointsLogTable } from "@workspace/db";
+import { db, usersTable, giftCardsTable, giftPurchasesTable, pointsLogTable, rewardConfigTable } from "@workspace/db";
 import {
   CreateGiftCardBody,
   UpdateGiftCardParams,
@@ -8,6 +8,7 @@ import {
   DeleteGiftCardParams,
   PurchaseGiftCardBody,
   AwardPointsBody,
+  UpdateRewardConfigBody,
 } from "@workspace/api-zod";
 import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { getLevel } from "../lib/jwt";
@@ -274,6 +275,50 @@ router.post("/store/award", requireAdmin, async (req: Request, res: Response): P
   });
 
   res.json({ userId: user.id, balance: user.points, level: getLevel(user.points) });
+});
+
+// ── Reward Config ─────────────────────────────────────────────────────────────
+
+async function getOrCreateRewardConfig() {
+  const [existing] = await db.select().from(rewardConfigTable).limit(1);
+  if (existing) return existing;
+  const [created] = await db.insert(rewardConfigTable).values({}).returning();
+  return created!;
+}
+
+router.get("/store/reward-config", async (req: Request, res: Response): Promise<void> => {
+  const config = await getOrCreateRewardConfig();
+  res.json({
+    reelsScrollInterval: config.reelsScrollInterval,
+    postLikesThreshold: config.postLikesThreshold,
+    reelPlaysThreshold: config.reelPlaysThreshold,
+  });
+});
+
+router.patch("/store/reward-config", requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  const body = UpdateRewardConfigBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+
+  const updates: Partial<typeof body.data> = {};
+  if (body.data.reelsScrollInterval !== undefined) updates.reelsScrollInterval = body.data.reelsScrollInterval;
+  if (body.data.postLikesThreshold !== undefined) updates.postLikesThreshold = body.data.postLikesThreshold;
+  if (body.data.reelPlaysThreshold !== undefined) updates.reelPlaysThreshold = body.data.reelPlaysThreshold;
+
+  const existing = await getOrCreateRewardConfig();
+  const [updated] = await db
+    .update(rewardConfigTable)
+    .set({ ...updates, updatedAt: new Date() })
+    .where(eq(rewardConfigTable.id, existing.id))
+    .returning();
+
+  res.json({
+    reelsScrollInterval: updated!.reelsScrollInterval,
+    postLikesThreshold: updated!.postLikesThreshold,
+    reelPlaysThreshold: updated!.reelPlaysThreshold,
+  });
 });
 
 export default router;

@@ -25,6 +25,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import ScratchCard, { GiftCardPrize, PRIZES } from "@/components/ScratchCard";
 import { useAuth } from "@/context/AuthContext";
+import { useRewardConfig } from "@/context/RewardConfigContext";
 import {
   useSocial,
   type AppUser,
@@ -38,7 +39,6 @@ const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
   : "/api";
 const GAP = 1.5;
 const THUMB_SIZE = (width - GAP * 2) / 3;
-const PLAY_MILESTONE = 100;
 
 const REEL_IMAGES: Record<string, ImageSourcePropType> = {
   reel1: require("../../assets/images/reel1.png"),
@@ -108,11 +108,12 @@ function PlayRing({ plays, milestone, size = 36 }: { plays: number; milestone: n
 }
 
 function TilePlayIndicator({ reel, onTap }: { reel: ReelGridItem; onTap: () => void }) {
-  const isComplete = reel.plays >= PLAY_MILESTONE;
+  const { reelPlaysThreshold } = useRewardConfig();
+  const isComplete = reel.plays >= reelPlaysThreshold;
   if (reel.scratchUsed) return null;
   return (
     <Pressable onPress={isComplete ? onTap : undefined} style={styles.ringWrap}>
-      <PlayRing plays={reel.plays} milestone={PLAY_MILESTONE} size={36} />
+      <PlayRing plays={reel.plays} milestone={reelPlaysThreshold} size={36} />
       {isComplete ? (
         <View style={styles.ringCenter}><Text style={{ fontSize: 13 }}>🎁</Text></View>
       ) : (
@@ -374,6 +375,7 @@ export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user, token, updateUser } = useAuth();
+  const { reelPlaysThreshold } = useRewardConfig();
   const { getUserFollowers, getUserFollowing } = useSocial();
 
   const [activeTab, setActiveTab] = useState<"reels" | "posts" | "liked">("reels");
@@ -455,12 +457,12 @@ export default function ProfileScreen() {
     }, [fetchReels, fetchPosts])
   );
 
-  const completedCount = reels.filter((r) => r.plays >= PLAY_MILESTONE && !r.scratchUsed).length;
+  const completedCount = reels.filter((r) => r.plays >= reelPlaysThreshold && !r.scratchUsed).length;
   const followersList = getUserFollowers(user?.id ?? "");
   const followingList = getUserFollowing(user?.id ?? "");
 
   const handleTilePress = (reel: ReelGridItem) => {
-    if (reel.plays >= PLAY_MILESTONE && !reel.scratchUsed) {
+    if (reel.plays >= reelPlaysThreshold && !reel.scratchUsed) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setScratchTarget(reel);
     } else {
@@ -587,7 +589,7 @@ export default function ProfileScreen() {
           <Pressable
             style={[styles.scratchBanner, { backgroundColor: "rgba(255,215,0,0.08)", borderColor: "#FFD700" }]}
             onPress={() => {
-              const ready = reels.find((r) => r.plays >= PLAY_MILESTONE && !r.scratchUsed);
+              const ready = reels.find((r) => r.plays >= reelPlaysThreshold && !r.scratchUsed);
               if (ready) setScratchTarget(ready);
             }}
           >
@@ -668,7 +670,7 @@ export default function ProfileScreen() {
             </View>
             <View style={styles.grid}>
               {reels.map((reel) => {
-                const isComplete = reel.plays >= PLAY_MILESTONE;
+                const isComplete = reel.plays >= reelPlaysThreshold;
                 const isUsed = reel.scratchUsed;
                 return (
                   <Pressable
@@ -690,7 +692,7 @@ export default function ProfileScreen() {
                       <Feather name="play" size={10} color="rgba(255,255,255,0.8)" />
                       <Text style={styles.thumbViews}>
                         {formatCount(reel.plays)}
-                        {reel.plays < PLAY_MILESTONE && <Text style={styles.thumbMilestone}>/100</Text>}
+                        {reel.plays < reelPlaysThreshold && <Text style={styles.thumbMilestone}>/{reelPlaysThreshold}</Text>}
                       </Text>
                     </View>
                     {isUsed && (
@@ -704,7 +706,7 @@ export default function ProfileScreen() {
               })}
             </View>
             <Text style={[styles.tapHint, { color: colors.mutedForeground }]}>
-              Each reel tracks real plays. At 100 plays, a scratch card unlocks — tap the tile to claim your prize!
+              Each reel tracks real plays. At {reelPlaysThreshold} plays, a scratch card unlocks — tap the tile to claim your prize!
             </Text>
           </>
         )}

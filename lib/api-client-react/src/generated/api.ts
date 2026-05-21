@@ -58,6 +58,8 @@ import type {
   ReelInput,
   ReelList,
   RegisterInput,
+  RewardConfig,
+  RewardConfigUpdate,
   RoleUpdate,
   SuspendInput,
   UploadRequest,
@@ -2470,6 +2472,142 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getAwardPointsMutationOptions(options));
+    }
+
+export const getGetRewardConfigUrl = () => {
+
+
+
+
+  return `/api/store/reward-config`
+}
+
+export const getRewardConfig = async ( options?: RequestInit): Promise<RewardConfig> => {
+
+  return customFetch<RewardConfig>(getGetRewardConfigUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetRewardConfigQueryKey = () => {
+    return [
+    `/api/store/reward-config`
+    ] as const;
+    }
+
+
+export const getGetRewardConfigQueryOptions = <TData = Awaited<ReturnType<typeof getRewardConfig>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRewardConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRewardConfigQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRewardConfig>>> = ({ signal }) => getRewardConfig({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRewardConfig>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRewardConfigQueryResult = NonNullable<Awaited<ReturnType<typeof getRewardConfig>>>
+export type GetRewardConfigQueryError = ErrorType<unknown>
+
+
+
+export function useGetRewardConfig<TData = Awaited<ReturnType<typeof getRewardConfig>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRewardConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetRewardConfigQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getUpdateRewardConfigUrl = () => {
+
+
+
+
+  return `/api/store/reward-config`
+}
+
+export const updateRewardConfig = async (rewardConfigUpdate: RewardConfigUpdate, options?: RequestInit): Promise<RewardConfig> => {
+
+  return customFetch<RewardConfig>(getUpdateRewardConfigUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      rewardConfigUpdate,)
+  }
+);}
+
+
+
+
+export const getUpdateRewardConfigMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRewardConfig>>, TError,{data: BodyType<RewardConfigUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateRewardConfig>>, TError,{data: BodyType<RewardConfigUpdate>}, TContext> => {
+
+const mutationKey = ['updateRewardConfig'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateRewardConfig>>, {data: BodyType<RewardConfigUpdate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateRewardConfig(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateRewardConfigMutationResult = NonNullable<Awaited<ReturnType<typeof updateRewardConfig>>>
+    export type UpdateRewardConfigMutationBody = BodyType<RewardConfigUpdate>
+    export type UpdateRewardConfigMutationError = ErrorType<unknown>
+
+    export const useUpdateRewardConfig = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRewardConfig>>, TError,{data: BodyType<RewardConfigUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateRewardConfig>>,
+        TError,
+        {data: BodyType<RewardConfigUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateRewardConfigMutationOptions(options));
     }
 
 export const getGetLeaderboardUrl = (params?: GetLeaderboardParams,) => {
