@@ -124,7 +124,7 @@ export default function LeaderboardScreen() {
   const { userPoints } = useStore();
   const [period, setPeriod] = useState<Period>("alltime");
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [entries, setEntries] = useState<ApiLeaderboardEntry[]>([]);
+  const [lbEntries, setLbEntries] = useState<ApiLeaderboardEntry[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
@@ -138,7 +138,7 @@ export default function LeaderboardScreen() {
       const res = await fetch(`${API_BASE_LB}/leaderboard?period=${p}`, { headers });
       if (res.ok) {
         const data = await res.json();
-        setEntries(data.entries ?? []);
+        setLbEntries(Array.isArray(data) ? data : []);
       }
     } catch {}
     setRefreshing(false);
@@ -148,7 +148,7 @@ export default function LeaderboardScreen() {
     fetchLeaderboard(period);
   }, [period, fetchLeaderboard]);
 
-  const rankedUsers: RankedUser[] = entries.map((e, i) => ({
+  const rankedUsers: RankedUser[] = lbEntries.map((e, i) => ({
     id: String(e.userId),
     rank: e.rank,
     username: e.user?.username ?? "",
