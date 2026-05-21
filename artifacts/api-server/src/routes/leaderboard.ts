@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { eq, desc, gte, sql } from "drizzle-orm";
+import { eq, desc, gte, sql, and } from "drizzle-orm";
 import { db, usersTable, pointsLogTable } from "@workspace/db";
 import { GetLeaderboardQueryParams } from "@workspace/api-zod";
 import { getLevel } from "../lib/jwt";
@@ -27,7 +27,7 @@ router.get("/leaderboard", async (req: Request, res: Response): Promise<void> =>
         points: usersTable.points,
       })
       .from(usersTable)
-      .where(eq(usersTable.isActive, true))
+      .where(and(eq(usersTable.isActive, true), sql`${usersTable.role} != 'admin'`))
       .orderBy(desc(usersTable.points))
       .limit(limit);
 
@@ -80,7 +80,10 @@ router.get("/leaderboard", async (req: Request, res: Response): Promise<void> =>
       points: usersTable.points,
     })
     .from(usersTable)
-    .where(sql`${usersTable.id} = ANY(${sql.raw(`ARRAY[${userIds.join(",")}]::int[]`)})`);
+    .where(and(
+      sql`${usersTable.id} = ANY(${sql.raw(`ARRAY[${userIds.join(",")}]::int[]`)})`,
+      sql`${usersTable.role} != 'admin'`
+    ));
 
   const userMap = new Map(users.map((u) => [u.id, u]));
 
