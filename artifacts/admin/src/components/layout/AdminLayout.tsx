@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/useAuth";
 import { Button } from "@/components/ui/button";
 import { LayoutDashboard, Users, Video, ShoppingBag, Trophy, LogOut, Newspaper, Ticket, Settings2, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
