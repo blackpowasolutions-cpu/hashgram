@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -9,6 +9,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,13 +19,28 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
-  GIFT_CARDS,
   LEVEL_THRESHOLDS,
   getUserLevel,
   useStore,
-  type GiftCard,
 } from "@/context/StoreContext";
+import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
+
+const API_BASE_STORE = process.env.EXPO_PUBLIC_DOMAIN
+  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`
+  : "/api";
+
+interface ApiGiftCard {
+  id: number;
+  brand: string;
+  category: string;
+  value: string;
+  pointsCost: number;
+  minLevel: number;
+  gradient: [string, string];
+  emoji: string;
+  description: string;
+}
 
 const { width } = Dimensions.get("window");
 const CARD_W = (width - 16 * 2 - 10) / 2;
@@ -121,7 +137,7 @@ function GiftCardTile({
   isRedeemed,
   onPress,
 }: {
-  card: GiftCard;
+  card: ApiGiftCard;
   userLevel: number;
   userPoints: number;
   isRedeemed: boolean;
@@ -193,8 +209,8 @@ function GiftCardTile({
 // ─── Redeem Modal ─────────────────────────────────────────────────────────────
 
 type ModalState =
-  | { phase: "confirm"; card: GiftCard }
-  | { phase: "success"; card: GiftCard; code: string }
+  | { phase: "confirm"; card: ApiGiftCard }
+  | { phase: "success"; card: ApiGiftCard; code: string }
   | null;
 
 function RedeemModal({
@@ -352,36 +368,68 @@ function RedeemModal({
 export default function StoreScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { userPoints, redeemCard, getRedemption } = useStore();
+  const { userPoints, deductPoints, recordPurchase, getRedemption } = useStore();
+  const { token } = useAuth();
 
   const [activeCategory, setActiveCategory] = useState<Category>("All");
   const [modalState, setModalState] = useState<ModalState>(null);
   const [activeTab, setActiveTab] = useState<"store" | "claimed">("store");
+  const [apiCards, setApiCards] = useState<ApiGiftCard[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const bottomPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
 
   const levelInfo = getUserLevel(userPoints);
 
+  const fetchCards = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const headers: Record<string, string> = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await fetch(`${API_BASE_STORE}/store/cards`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setApiCards(
+          (data ?? []).map((c: any): ApiGiftCard => ({
+            id: c.id,
+            brand: c.brand,
+            category: c.category,
+            value: c.value,
+            pointsCost: c.pointsCost,
+            minLevel: c.minLevel,
+            gradient: [c.gradientFrom ?? "#333", c.gradientTo ?? "#111"] as [string, string],
+            emoji: c.emoji ?? "🎁",
+            description: c.description ?? "",
+          }))
+        );
+      }
+    } catch {}
+    setRefreshing(false);
+  }, [token]);
+
+  useEffect(() => {
+    fetchCards();
+  }, [fetchCards]);
+
   const filteredCards = useMemo(() => {
-    if (activeCategory === "All") return GIFT_CARDS;
-    return GIFT_CARDS.filter((c) => c.category === activeCategory);
-  }, [activeCategory]);
+    if (activeCategory === "All") return apiCards;
+    return apiCards.filter((c) => c.category === activeCategory);
+  }, [activeCategory, apiCards]);
 
   const claimedCards = useMemo(
-    () => GIFT_CARDS.filter((c) => !!getRedemption(c.id)),
-    [getRedemption]
+    () => apiCards.filter((c) => !!getRedemption(String(c.id))),
+    [apiCards, getRedemption]
   );
 
-  const handleCardPress = (card: GiftCard) => {
+  const handleCardPress = (card: ApiGiftCard) => {
     const userLvl = levelInfo.level;
     if (userLvl < card.minLevel) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;
     }
-    if (getRedemption(card.id)) {
-      // Already redeemed — show code
-      const rec = getRedemption(card.id)!;
+    if (getRedemption(String(card.id))) {
+      const rec = getRedemption(String(card.id))!;
       setModalState({ phase: "success", card, code: rec.code });
       return;
     }
@@ -389,13 +437,31 @@ export default function StoreScreen() {
     setModalState({ phase: "confirm", card });
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!modalState || modalState.phase !== "confirm") return;
-    const code = redeemCard(modalState.card);
-    if (code) {
+    const card = modalState.card as ApiGiftCard;
+    if (!token || userPoints < card.pointsCost) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setModalState(null);
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE_STORE}/store/purchase`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ giftCardId: card.id }),
+      });
+      if (!res.ok) throw new Error("Purchase failed");
+      const data = await res.json();
+      recordPurchase(
+        String(card.id),
+        data.code,
+        data.createdAt ?? new Date().toISOString(),
+        card.pointsCost
+      );
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setModalState({ phase: "success", card: modalState.card, code });
-    } else {
+      setModalState({ phase: "success", card: modalState.card, code: data.code });
+    } catch {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setModalState(null);
     }
@@ -484,7 +550,7 @@ export default function StoreScreen() {
       {/* Card grid */}
       <FlatList
         data={filteredCards}
-        keyExtractor={(c) => c.id}
+        keyExtractor={(c) => String(c.id)}
         numColumns={2}
         columnWrapperStyle={styles.cardRow}
         contentContainerStyle={{ padding: 16, paddingBottom: bottomPad + 100 }}
@@ -494,7 +560,7 @@ export default function StoreScreen() {
             card={item}
             userLevel={levelInfo.level}
             userPoints={userPoints}
-            isRedeemed={!!getRedemption(item.id)}
+            isRedeemed={!!getRedemption(String(item.id))}
             onPress={() => handleCardPress(item)}
           />
         )}
@@ -523,13 +589,13 @@ export default function StoreScreen() {
         </View>
       ) : (
         claimedCards.map((card) => {
-          const rec = getRedemption(card.id)!;
+          const rec = getRedemption(String(card.id))!;
           const date = new Date(rec.redeemedAt).toLocaleDateString();
           return (
             <TouchableOpacity
               key={card.id}
               style={[styles.claimedRow, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => setModalState({ phase: "success", card, code: rec.code })}
+              onPress={() => setModalState({ phase: "success", card: card as ApiGiftCard, code: rec.code })}
               activeOpacity={0.8}
             >
               <LinearGradient colors={card.gradient} style={styles.claimedIcon}>
@@ -562,7 +628,17 @@ export default function StoreScreen() {
         <LevelBadge level={levelInfo.level} size="md" />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} stickyHeaderIndices={[1]}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        stickyHeaderIndices={[1]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={fetchCards}
+            colors={["#FE2C55"]}
+          />
+        }
+      >
         <SubHeader />
 
         {/* Store / Claimed tabs */}

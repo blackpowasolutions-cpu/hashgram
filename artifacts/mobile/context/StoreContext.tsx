@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { useAuth } from "./AuthContext";
 
 // ─── Level config (backend-configurable later) ────────────────────────────────
 
@@ -254,46 +255,29 @@ interface StoreContextValue {
   userPoints: number;
   redeemedCards: RedemptionRecord[];
   addPoints: (amount: number) => void;
-  deductPoints: (amount: number) => boolean; // returns false if insufficient
-  redeemCard: (card: GiftCard) => string | null; // returns generated code or null
+  deductPoints: (amount: number) => boolean;
+  recordPurchase: (cardId: string, code: string, redeemedAt: string, pointsCost: number) => void;
   getRedemption: (cardId: string) => RedemptionRecord | undefined;
 }
 
 const StoreContext = createContext<StoreContextValue | null>(null);
 
-const DEMO_STARTING_POINTS = 2500; // Level 2 demo balance
-const STORAGE_KEY_POINTS = "@reels_store_points";
 const STORAGE_KEY_REDEEMED = "@reels_store_redeemed";
 
-function generateCode(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const seg = () =>
-    Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-  return `${seg()}-${seg()}-${seg()}`;
-}
-
 export function StoreProvider({ children }: { children: React.ReactNode }) {
-  const [userPoints, setUserPoints] = useState(DEMO_STARTING_POINTS);
+  const { user, updateUser } = useAuth();
   const [redeemedCards, setRedeemedCards] = useState<RedemptionRecord[]>([]);
 
-  // Hydrate from storage on mount
+  const userPoints = user?.points ?? 0;
+
+  // Hydrate purchase history from storage on mount
   useEffect(() => {
     (async () => {
       try {
-        const [pts, redeemed] = await Promise.all([
-          AsyncStorage.getItem(STORAGE_KEY_POINTS),
-          AsyncStorage.getItem(STORAGE_KEY_REDEEMED),
-        ]);
-        if (pts !== null) setUserPoints(JSON.parse(pts));
+        const redeemed = await AsyncStorage.getItem(STORAGE_KEY_REDEEMED);
         if (redeemed !== null) setRedeemedCards(JSON.parse(redeemed));
       } catch {}
     })();
-  }, []);
-
-  const persistPoints = useCallback(async (pts: number) => {
-    try {
-      await AsyncStorage.setItem(STORAGE_KEY_POINTS, JSON.stringify(pts));
-    } catch {}
   }, []);
 
   const persistRedeemed = useCallback(async (records: RedemptionRecord[]) => {
@@ -304,54 +288,32 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const addPoints = useCallback(
     (amount: number) => {
-      setUserPoints((prev) => {
-        const next = prev + amount;
-        persistPoints(next);
-        return next;
-      });
+      updateUser({ points: (user?.points ?? 0) + amount });
     },
-    [persistPoints]
+    [user, updateUser]
   );
 
   const deductPoints = useCallback(
     (amount: number): boolean => {
-      let success = false;
-      setUserPoints((prev) => {
-        if (prev < amount) return prev;
-        success = true;
-        const next = prev - amount;
-        persistPoints(next);
-        return next;
-      });
-      return success;
+      const current = user?.points ?? 0;
+      if (current < amount) return false;
+      updateUser({ points: current - amount });
+      return true;
     },
-    [persistPoints]
+    [user, updateUser]
   );
 
-  const redeemCard = useCallback(
-    (card: GiftCard): string | null => {
-      let code: string | null = null;
-      setUserPoints((prev) => {
-        if (prev < card.pointsCost) return prev;
-        code = generateCode();
-        return prev - card.pointsCost;
+  const recordPurchase = useCallback(
+    (cardId: string, code: string, redeemedAt: string, pointsCost: number) => {
+      deductPoints(pointsCost);
+      const record: RedemptionRecord = { cardId, code, redeemedAt };
+      setRedeemedCards((prev) => {
+        const next = [...prev, record];
+        persistRedeemed(next);
+        return next;
       });
-      if (code) {
-        const record: RedemptionRecord = {
-          cardId: card.id,
-          code,
-          redeemedAt: new Date().toISOString(),
-        };
-        setRedeemedCards((prev) => {
-          const next = [...prev, record];
-          persistRedeemed(next);
-          return next;
-        });
-        persistPoints(userPoints - card.pointsCost);
-      }
-      return code;
     },
-    [userPoints, persistPoints, persistRedeemed]
+    [deductPoints, persistRedeemed]
   );
 
   const getRedemption = useCallback(
@@ -361,7 +323,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <StoreContext.Provider
-      value={{ userPoints, redeemedCards, addPoints, deductPoints, redeemCard, getRedemption }}
+      value={{ userPoints, redeemedCards, addPoints, deductPoints, recordPurchase, getRedemption }}
     >
       {children}
     </StoreContext.Provider>

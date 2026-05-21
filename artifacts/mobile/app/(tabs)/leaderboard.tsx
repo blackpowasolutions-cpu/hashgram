@@ -1,11 +1,13 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Dimensions,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,139 +22,33 @@ import { useColors } from "@/hooks/useColors";
 
 const { width } = Dimensions.get("window");
 
-interface PointBreakdown {
-  posts: number;
-  logins: number;
-  likes: number;
-  plays: number;
-  visits: number;
-  comments: number;
-  shares: number;
+type Period = "daily" | "weekly" | "alltime";
+
+interface ApiLeaderboardEntry {
+  rank: number;
+  userId: number;
+  user: { id: number; username: string; displayName: string; avatarUrl: string | null };
+  points: number;
+  level: number;
 }
 
-interface LeaderboardUser {
+interface RankedUser {
   id: string;
+  rank: number;
   username: string;
   displayName: string;
   avatarColor: string;
-  breakdown: PointBreakdown;
+  points: number;
 }
 
-function calcPoints(b: PointBreakdown): number {
-  return (
-    b.posts * 1 +
-    b.logins * 5 +
-    b.likes * 1 +
-    b.plays * 1 +
-    b.visits * 3 +
-    b.comments * 1 +
-    b.shares * 1
-  );
-}
-
-// ─── Users — breakdown values scale to 0-15k "all-time" range ─────────────────
-// Points are earned via: posts(×1) logins(×5) likes(×1) plays(×1) visits(×3) comments(×1) shares(×1)
-const ALL_USERS: LeaderboardUser[] = [
-  {
-    id: "1",
-    username: "@dancequeen",
-    displayName: "Dance Queen",
-    avatarColor: "#FF6B9D",
-    // All-time overridden by StoreContext for logged-in user; breakdown used for daily/weekly stats
-    breakdown: { posts: 12, logins: 12, likes: 800, plays: 1440, visits: 65, comments: 42, shares: 20 },
-  },
-  {
-    id: "2",
-    username: "@sk8er_pro",
-    displayName: "Sk8er Pro",
-    avatarColor: "#6BCB77",
-    breakdown: { posts: 50, logins: 32, likes: 4300, plays: 7600, visits: 310, comments: 210, shares: 100 },
-    // calcPoints ≈ 13,350 → Diamond
-  },
-  {
-    id: "3",
-    username: "@wanderlust",
-    displayName: "Wanderlust",
-    avatarColor: "#4D96FF",
-    breakdown: { posts: 42, logins: 28, likes: 3700, plays: 6500, visits: 270, comments: 175, shares: 85 },
-    // calcPoints ≈ 11,452 → Platinum
-  },
-  {
-    id: "4",
-    username: "@streetfoodking",
-    displayName: "Street Food King",
-    avatarColor: "#FF8C42",
-    breakdown: { posts: 36, logins: 24, likes: 3100, plays: 5500, visits: 230, comments: 145, shares: 72 },
-    // calcPoints ≈ 9,663 → Platinum
-  },
-  {
-    id: "5",
-    username: "@stylequeen",
-    displayName: "Style Queen",
-    avatarColor: "#C77DFF",
-    breakdown: { posts: 30, logins: 20, likes: 2700, plays: 4700, visits: 195, comments: 120, shares: 60 },
-    // calcPoints ≈ 8,295 → Platinum
-  },
-  {
-    id: "6",
-    username: "@techguru",
-    displayName: "Tech Guru",
-    avatarColor: "#25F4EE",
-    breakdown: { posts: 25, logins: 18, likes: 2200, plays: 3900, visits: 160, comments: 100, shares: 50 },
-    // calcPoints ≈ 6,845 → Gold
-  },
-  {
-    id: "7",
-    username: "@fitnessmotiv",
-    displayName: "Fitness Motiv",
-    avatarColor: "#F9C74F",
-    breakdown: { posts: 20, logins: 15, likes: 1800, plays: 3200, visits: 130, comments: 82, shares: 40 },
-    // calcPoints ≈ 5,607 → Gold
-  },
-  {
-    id: "8",
-    username: "@artbylucy",
-    displayName: "Art by Lucy",
-    avatarColor: "#F94144",
-    breakdown: { posts: 16, logins: 12, likes: 1400, plays: 2400, visits: 95, comments: 60, shares: 30 },
-    // calcPoints ≈ 4,251 → Silver
-  },
-  {
-    id: "9",
-    username: "@musicvibes",
-    displayName: "Music Vibes",
-    avatarColor: "#90BE6D",
-    breakdown: { posts: 10, logins: 9, likes: 800, plays: 1400, visits: 55, comments: 35, shares: 17 },
-    // calcPoints ≈ 2,472 → Silver
-  },
-  {
-    id: "10",
-    username: "@coolgamer",
-    displayName: "Cool Gamer",
-    avatarColor: "#577590",
-    breakdown: { posts: 4, logins: 6, likes: 280, plays: 450, visits: 22, comments: 14, shares: 6 },
-    // calcPoints ≈ 850 → Bronze
-  },
+const AVATAR_COLORS = [
+  "#FF6B9D", "#6BCB77", "#4D96FF", "#FF8C42", "#C77DFF",
+  "#25F4EE", "#F9C74F", "#F94144", "#90BE6D", "#577590",
 ];
 
-type Period = "daily" | "weekly" | "alltime";
-
-const DAILY_FACTOR: Record<string, number> = {
-  "1": 0.03, "2": 0.028, "3": 0.025, "4": 0.022, "5": 0.019,
-  "6": 0.017, "7": 0.015, "8": 0.012, "9": 0.01, "10": 0.008,
-};
-
-function scaleBreakdown(b: PointBreakdown, factor: number): PointBreakdown {
-  return {
-    posts: Math.round(b.posts * factor),
-    logins: Math.round(b.logins * factor),
-    likes: Math.round(b.likes * factor),
-    plays: Math.round(b.plays * factor),
-    visits: Math.round(b.visits * factor),
-    comments: Math.round(b.comments * factor),
-    shares: Math.round(b.shares * factor),
-  };
-}
+const API_BASE_LB = process.env.EXPO_PUBLIC_DOMAIN
+  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`
+  : "/api";
 
 function formatPoints(n: number): string {
   if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
@@ -209,7 +105,7 @@ function LevelGuide({ colors }: { colors: ReturnType<typeof useColors> }) {
 const MEDALS = ["🥇", "🥈", "🥉"];
 const PODIUM_COLORS = ["#FFD700", "#C0C0C0", "#CD7F32"];
 
-const METRICS: { key: keyof PointBreakdown; label: string; icon: string; pts: number }[] = [
+const METRICS: { key: string; label: string; icon: string; pts: number }[] = [
   { key: "posts",    label: "Posts Created",       icon: "film",           pts: 1 },
   { key: "logins",   label: "Daily Logins",        icon: "log-in",         pts: 5 },
   { key: "likes",    label: "Likes Received",      icon: "heart",          pts: 1 },
@@ -224,38 +120,48 @@ const METRICS: { key: keyof PointBreakdown; label: string; icon: string; pts: nu
 export default function LeaderboardScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { userPoints } = useStore();
   const [period, setPeriod] = useState<Period>("alltime");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [entries, setEntries] = useState<ApiLeaderboardEntry[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const bottomPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
 
-  // Build ranked list.
-  // For all-time: logged-in user (id "1") always uses live StoreContext points.
-  // Daily/weekly use breakdown scaling — for stats purposes only (no level impact).
-  const getUsers = (): (LeaderboardUser & { points: number; rank: number })[] => {
-    return ALL_USERS.map((u) => {
-      let b = u.breakdown;
-      if (period === "daily")  b = scaleBreakdown(b, DAILY_FACTOR[u.id] ?? 0.01);
-      if (period === "weekly") b = scaleBreakdown(b, (DAILY_FACTOR[u.id] ?? 0.01) * 6.5);
-      const pts = (period === "alltime" && u.id === (user?.id ?? "1"))
-        ? userPoints
-        : calcPoints(b);
-      return { ...u, points: pts, breakdown: b };
-    })
-      .sort((a, b) => b.points - a.points)
-      .map((u, i) => ({ ...u, rank: i + 1 }));
-  };
+  const fetchLeaderboard = useCallback(async (p: Period) => {
+    setRefreshing(true);
+    try {
+      const headers: Record<string, string> = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await fetch(`${API_BASE_LB}/leaderboard?period=${p}`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setEntries(data.entries ?? []);
+      }
+    } catch {}
+    setRefreshing(false);
+  }, [token]);
 
-  const rankedUsers = getUsers();
+  useEffect(() => {
+    fetchLeaderboard(period);
+  }, [period, fetchLeaderboard]);
+
+  const rankedUsers: RankedUser[] = entries.map((e, i) => ({
+    id: String(e.userId),
+    rank: e.rank,
+    username: e.user?.username ?? "",
+    displayName: e.user?.displayName ?? "",
+    avatarColor: AVATAR_COLORS[i % AVATAR_COLORS.length],
+    points: String(e.userId) === user?.id ? userPoints : e.points,
+  }));
+
   const top3 = rankedUsers.slice(0, 3);
   const rest = rankedUsers.slice(3);
-  const podiumOrder = [top3[1], top3[0], top3[2]];
+  const podiumOrder = [top3[1], top3[0], top3[2]].filter(Boolean) as RankedUser[];
 
-  // My Rank — look up the logged-in user in the ranked list
-  const myEntry = rankedUsers.find((u) => u.id === (user?.id ?? "1"));
+  const myEntry = rankedUsers.find((u) => u.id === user?.id);
   const myPoints = myEntry?.points ?? userPoints;
   const myRank = myEntry?.rank ?? rankedUsers.length + 1;
   const myLevel = getUserLevel(period === "alltime" ? userPoints : myPoints);
@@ -303,6 +209,13 @@ export default function LeaderboardScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: bottomPad + 90 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => fetchLeaderboard(period)}
+            colors={["#FE2C55"]}
+          />
+        }
       >
         {/* Level Guide */}
         <LevelGuide colors={colors} />
@@ -405,17 +318,15 @@ export default function LeaderboardScreen() {
 
                 {expandedId === u.id && (
                   <View style={[styles.breakdown, { borderBottomColor: colors.border }]}>
-                    <Text style={[styles.breakdownTitle, { color: colors.mutedForeground }]}>Point Breakdown</Text>
+                    <Text style={[styles.breakdownTitle, { color: colors.mutedForeground }]}>Point Summary</Text>
                     <View style={styles.breakdownGrid}>
-                      {METRICS.map((m) => (
-                        <View key={m.key} style={[styles.breakdownItem, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-                          <Feather name={m.icon as any} size={12} color="#FE2C55" />
-                          <Text style={[styles.breakdownLabel, { color: colors.mutedForeground }]}>{m.label}</Text>
-                          <Text style={[styles.breakdownValue, { color: colors.foreground }]}>
-                            {formatPoints(u.breakdown[m.key] * m.pts)}
-                          </Text>
-                        </View>
-                      ))}
+                      <View style={[styles.breakdownItem, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+                        <Feather name="award" size={12} color="#FE2C55" />
+                        <Text style={[styles.breakdownLabel, { color: colors.mutedForeground }]}>Total Points</Text>
+                        <Text style={[styles.breakdownValue, { color: colors.foreground }]}>
+                          {formatPoints(u.points)}
+                        </Text>
+                      </View>
                     </View>
                   </View>
                 )}

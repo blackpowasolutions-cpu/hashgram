@@ -2,7 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -12,6 +12,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -27,6 +28,17 @@ import ScratchCard, { PRIZES, type GiftCardPrize } from "@/components/ScratchCar
 import { useColors } from "@/hooks/useColors";
 
 const { width } = Dimensions.get("window");
+
+const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
+  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`
+  : "/api";
+
+const EMOJI_TO_TYPE: Record<string, string> = {
+  "👍": "like", "❤️": "love", "😂": "haha", "😮": "wow", "😢": "sad", "😡": "angry",
+};
+const TYPE_TO_EMOJI: Record<string, string> = {
+  like: "👍", love: "❤️", haha: "😂", wow: "😮", sad: "😢", angry: "😡",
+};
 
 // ─── Reaction types ──────────────────────────────────────────────────────────
 
@@ -626,9 +638,10 @@ function CreatePostModal({
 export default function NewsFeedScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
 
   const [posts, setPosts] = useState<Post[]>(INITIAL_POSTS);
+  const [refreshing, setRefreshing] = useState(false);
   const [createVisible, setCreateVisible] = useState(false);
   const [scratchTarget, setScratchTarget] = useState<{ post: Post; prize: GiftCardPrize } | null>(null);
   const [scratchedMap, setScratchedMap] = useState<Record<string, GiftCardPrize>>({});
@@ -636,16 +649,56 @@ export default function NewsFeedScreen() {
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const bottomPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
 
+  const fetchPosts = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const headers: Record<string, string> = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await fetch(`${API_BASE}/posts?limit=30`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setPosts(
+          (data.items ?? []).map((p: any): Post => {
+            const reactionMap: Record<string, number> = { like: 0, love: 0, haha: 0, wow: 0, sad: 0, angry: 0 };
+            (p.reactions ?? []).forEach(({ emoji, count }: { emoji: string; count: number }) => {
+              const type = EMOJI_TO_TYPE[emoji];
+              if (type) reactionMap[type] = count;
+            });
+            return {
+              id: String(p.id),
+              user: {
+                id: String(p.userId),
+                username: p.user?.username ?? "",
+                displayName: p.user?.displayName ?? "",
+                avatarColor: "#FE2C55",
+              },
+              content: p.content,
+              image: p.mediaUrl ?? undefined,
+              createdAt: new Date(p.createdAt).toLocaleDateString(),
+              reactions: reactionMap as any,
+              userReaction: p.myReaction ? (EMOJI_TO_TYPE[p.myReaction] as ReactionType ?? null) : null,
+              comments: 0,
+              shares: 0,
+            };
+          })
+        );
+      }
+    } catch {}
+    setRefreshing(false);
+  }, [token]);
+
+  useEffect(() => {
+    fetchPosts();
+  }, [fetchPosts]);
+
   const handleReact = useCallback((postId: string, reaction: ReactionType | null) => {
     setPosts((prev) =>
       prev.map((p) => {
         if (p.id !== postId) return p;
         const updated = { ...p, reactions: { ...p.reactions } };
-        // Remove old reaction
         if (p.userReaction) {
           updated.reactions[p.userReaction] = Math.max(0, updated.reactions[p.userReaction] - 1);
         }
-        // Add new reaction
         if (reaction) {
           updated.reactions[reaction] = updated.reactions[reaction] + 1;
         }
@@ -653,7 +706,20 @@ export default function NewsFeedScreen() {
         return updated;
       })
     );
-  }, []);
+    if (!token) return;
+    if (reaction) {
+      fetch(`${API_BASE}/posts/${postId}/react`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ emoji: TYPE_TO_EMOJI[reaction] }),
+      }).catch(() => {});
+    } else {
+      fetch(`${API_BASE}/posts/${postId}/react`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {});
+    }
+  }, [token]);
 
   const handleScratchReady = useCallback((post: Post) => {
     const prize = PRIZES[Math.floor(Math.random() * PRIZES.length)];
@@ -669,10 +735,11 @@ export default function NewsFeedScreen() {
   }, [scratchTarget]);
 
   const handleCreatePost = useCallback((content: string, image: string | null) => {
+    const tempId = `post_${Date.now()}`;
     const newPost: Post = {
-      id: Date.now().toString(),
+      id: tempId,
       user: {
-        id: "me",
+        id: user?.id ?? "me",
         username: user?.username ?? "@you",
         displayName: user?.displayName ?? "You",
         avatarColor: "#FE2C55",
@@ -687,7 +754,23 @@ export default function NewsFeedScreen() {
     };
     setPosts((prev) => [newPost, ...prev]);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  }, [user]);
+    if (token) {
+      fetch(`${API_BASE}/posts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ content, mediaUrl: image ?? undefined }),
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (data?.id) {
+            setPosts((prev) =>
+              prev.map((p) => (p.id === tempId ? { ...p, id: String(data.id) } : p))
+            );
+          }
+        })
+        .catch(() => {});
+    }
+  }, [user, token]);
 
   const ListHeader = () => (
     <>
@@ -772,6 +855,13 @@ export default function NewsFeedScreen() {
           <View style={{ height: bottomPad + 90 }} />
         )}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={fetchPosts}
+            colors={["#FE2C55"]}
+          />
+        }
       />
 
       <CreatePostModal

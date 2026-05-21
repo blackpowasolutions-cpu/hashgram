@@ -16,11 +16,16 @@ router.get("/posts", optionalAuth, async (req: Request, res: Response): Promise<
   const page = query.data.page ?? 1;
   const limit = query.data.limit ?? 20;
   const offset = (page - 1) * limit;
+  const filterUserId = req.query.userId ? parseInt(req.query.userId as string, 10) : null;
+
+  const baseWhere = filterUserId
+    ? and(eq(postsTable.isActive, true), eq(postsTable.userId, filterUserId))
+    : eq(postsTable.isActive, true);
 
   const [totalRow] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(postsTable)
-    .where(eq(postsTable.isActive, true));
+    .where(baseWhere);
 
   const posts = await db
     .select({
@@ -36,7 +41,7 @@ router.get("/posts", optionalAuth, async (req: Request, res: Response): Promise<
     })
     .from(postsTable)
     .innerJoin(usersTable, eq(postsTable.userId, usersTable.id))
-    .where(eq(postsTable.isActive, true))
+    .where(baseWhere)
     .orderBy(desc(postsTable.createdAt))
     .limit(limit)
     .offset(offset);

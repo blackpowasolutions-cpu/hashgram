@@ -4,7 +4,7 @@ import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { ResizeMode, Video } from "expo-av";
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -13,6 +13,7 @@ import {
   ImageSourcePropType,
   Platform,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -26,6 +27,10 @@ import { useMessages } from "@/context/MessagesContext";
 import { useSocial } from "@/context/SocialContext";
 
 const { width, height } = Dimensions.get("window");
+
+const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
+  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`
+  : "/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -339,12 +344,47 @@ function ReelItem({ item, bottomPad, isActive }: { item: Reel; bottomPad: number
 export default function FeedScreen() {
   const insets = useSafeAreaInsets();
   const bottomPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { conversations } = useMessages();
   const totalUnread = conversations.reduce((s, c) => s + c.unreadCount, 0);
   const [reels, setReels] = useState<Reel[]>(REELS);
+  const [refreshing, setRefreshing] = useState(false);
   const [uploadToast, setUploadToast] = useState(false);
   const [activeId, setActiveId] = useState<string>(REELS[0]?.id ?? "");
+
+  const fetchReels = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const headers: Record<string, string> = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await fetch(`${API_BASE}/reels?limit=50`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        const items = (data.items ?? []).map((r: any): Reel => ({
+          id: String(r.id),
+          userId: String(r.userId),
+          user: r.user?.username ?? "",
+          displayName: r.user?.displayName ?? "",
+          description: r.description ?? "",
+          likes: r.likesCount ?? 0,
+          comments: 0,
+          shares: 0,
+          views: r.views ?? 0,
+          image: r.thumbnailUrl ? ({ uri: r.thumbnailUrl } as any) : undefined,
+          videoUri: r.mediaUrl ?? undefined,
+          music: r.music ?? "Original Sound",
+          avatarColor: "#FF6B9D",
+        }));
+        setReels(items);
+        if (items.length > 0) setActiveId(items[0].id);
+      }
+    } catch {}
+    setRefreshing(false);
+  }, [token]);
+
+  useEffect(() => {
+    fetchReels();
+  }, [fetchReels]);
 
   // Build feed: inject a gift surprise card after every 4th reel
   const listData = useMemo<ListItem[]>(() => {
@@ -381,8 +421,9 @@ export default function FeedScreen() {
       });
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
+        const tempId = `user_${Date.now()}`;
         const newReel: Reel = {
-          id: `user_${Date.now()}`,
+          id: tempId,
           userId: user?.id ?? "1",
           user: user?.username ?? "@you",
           displayName: user?.displayName ?? "You",
@@ -399,9 +440,29 @@ export default function FeedScreen() {
         setUploadToast(true);
         setTimeout(() => setUploadToast(false), 2500);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        if (token) {
+          fetch(`${API_BASE}/reels`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+              description: "My new reel 🎬 #reels #fyp",
+              mediaUrl: asset.uri,
+              music: "Original Sound",
+            }),
+          })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((data) => {
+              if (data?.id) {
+                setReels((prev) =>
+                  prev.map((r) => (r.id === tempId ? { ...r, id: String(data.id) } : r))
+                );
+              }
+            })
+            .catch(() => {});
+        }
       }
     } catch {}
-  }, [user]);
+  }, [user, token]);
 
   return (
     <View style={styles.container}>
@@ -464,6 +525,14 @@ export default function FeedScreen() {
         viewabilityConfig={viewabilityConfig.current}
         scrollEnabled={listData.length > 0}
         getItemLayout={(_, index) => ({ length: height, offset: height * index, index })}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={fetchReels}
+            tintColor="#fff"
+            colors={["#FE2C55"]}
+          />
+        }
         ListEmptyComponent={
           <View style={[styles.emptyState, { height, paddingBottom: bottomPad + 80 }]}>
             <Feather name="video" size={52} color="rgba(255,255,255,0.18)" />

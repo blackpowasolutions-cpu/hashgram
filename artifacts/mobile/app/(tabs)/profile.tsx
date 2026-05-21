@@ -2,7 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Dimensions,
   FlatList,
@@ -12,6 +12,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -31,6 +32,10 @@ import {
 import { useColors } from "@/hooks/useColors";
 
 const { width } = Dimensions.get("window");
+
+const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
+  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`
+  : "/api";
 const GAP = 1.5;
 const THUMB_SIZE = (width - GAP * 2) / 3;
 const PLAY_MILESTONE = 100;
@@ -371,14 +376,34 @@ function UserListModal({
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
+const THUMB_LIST = [
+  require("../../assets/images/reel1.png"),
+  require("../../assets/images/reel2.png"),
+  require("../../assets/images/reel3.png"),
+  require("../../assets/images/reel4.png"),
+  require("../../assets/images/reel5.png"),
+];
+
+interface OwnPost {
+  id: string;
+  content: string;
+  mediaUrl?: string;
+  createdAt: string;
+  likes: number;
+  comments: number;
+  shares: number;
+}
+
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, updateUser } = useAuth();
+  const { user, token, updateUser } = useAuth();
   const { getUserFollowers, getUserFollowing } = useSocial();
 
   const [activeTab, setActiveTab] = useState<"reels" | "posts" | "liked">("reels");
-  const [reels, setReels] = useState<ReelGridItem[]>(INITIAL_REELS);
+  const [reels, setReels] = useState<ReelGridItem[]>([]);
+  const [ownPosts, setOwnPosts] = useState<OwnPost[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
   const [scratchTarget, setScratchTarget] = useState<ReelGridItem | null>(null);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showFollowers, setShowFollowers] = useState(false);
@@ -386,6 +411,61 @@ export default function ProfileScreen() {
 
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const bottomPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
+
+  const fetchReels = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const headers: Record<string, string> = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await fetch(`${API_BASE}/reels?userId=${user.id}&limit=30`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setReels(
+          (data.items ?? []).map((r: any, i: number): ReelGridItem => ({
+            id: String(r.id),
+            title: r.description ?? "My Reel",
+            plays: 0,
+            scratchUsed: false,
+            prize: PRIZES[i % PRIZES.length],
+          }))
+        );
+      }
+    } catch {}
+  }, [user?.id, token]);
+
+  const fetchPosts = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const headers: Record<string, string> = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await fetch(`${API_BASE}/posts?userId=${user.id}&limit=30`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setOwnPosts(
+          (data.items ?? []).map((p: any): OwnPost => ({
+            id: String(p.id),
+            content: p.content,
+            mediaUrl: p.mediaUrl ?? undefined,
+            createdAt: new Date(p.createdAt).toLocaleDateString(),
+            likes: 0,
+            comments: 0,
+            shares: 0,
+          }))
+        );
+      }
+    } catch {}
+  }, [user?.id, token]);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([fetchReels(), fetchPosts()]);
+    setRefreshing(false);
+  }, [fetchReels, fetchPosts]);
+
+  useEffect(() => {
+    fetchReels();
+    fetchPosts();
+  }, [fetchReels, fetchPosts]);
 
   const completedCount = reels.filter((r) => r.plays >= PLAY_MILESTONE && !r.scratchUsed).length;
   const followersList = getUserFollowers(user?.id ?? "");
@@ -434,6 +514,13 @@ export default function ProfileScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: bottomPad + 80 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={["#FE2C55"]}
+          />
+        }
       >
         {/* Header */}
         <View style={[styles.header, { paddingTop: topPad + 8 }]}>
@@ -469,7 +556,7 @@ export default function ProfileScreen() {
           <View style={styles.statsRow}>
             <TouchableOpacity style={styles.stat} activeOpacity={0.7}>
               <Text style={[styles.statNum, { color: colors.foreground }]}>
-                {formatCount(reels.length + OWN_POSTS.length)}
+                {formatCount(reels.length + ownPosts.length)}
               </Text>
               <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Posts</Text>
             </TouchableOpacity>
@@ -607,7 +694,7 @@ export default function ProfileScreen() {
                     onPress={() => handleTilePress(reel)}
                     android_ripple={{ color: "#333" }}
                   >
-                    <Image source={THUMB_IMAGES[reel.id]} style={styles.thumbImg} resizeMode="cover" />
+                    <Image source={THUMB_IMAGES[reel.id] ?? THUMB_LIST[(parseInt(reel.id, 10) || 0) % THUMB_LIST.length]} style={styles.thumbImg} resizeMode="cover" />
                     <View style={styles.thumbDark} />
                     <TilePlayIndicator reel={reel} onTap={() => setScratchTarget(reel)} />
                     <View style={styles.thumbBottom}>
@@ -636,7 +723,12 @@ export default function ProfileScreen() {
         {/* ── POSTS TAB ── */}
         {activeTab === "posts" && (
           <View>
-            {OWN_POSTS.map((post) => (
+            {ownPosts.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Feather name="file-text" size={44} color={colors.mutedForeground} />
+                <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No posts yet</Text>
+              </View>
+            ) : ownPosts.map((post) => (
               <View
                 key={post.id}
                 style={[styles.postCard, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -655,8 +747,8 @@ export default function ProfileScreen() {
                   </View>
                 </View>
                 <Text style={[styles.postContent, { color: colors.foreground }]}>{post.content}</Text>
-                {post.imageKey ? (
-                  <Image source={REEL_IMAGES[post.imageKey]} style={styles.postImage} resizeMode="cover" />
+                {post.mediaUrl ? (
+                  <Image source={{ uri: post.mediaUrl }} style={styles.postImage} resizeMode="cover" />
                 ) : null}
                 <View style={[styles.postStats, { borderTopColor: colors.border }]}>
                   <View style={styles.postStat}>
