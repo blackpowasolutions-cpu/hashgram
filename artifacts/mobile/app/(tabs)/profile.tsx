@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Dimensions,
@@ -79,15 +79,6 @@ interface ReelGridItem {
   scratchUsed: boolean;
   prize: GiftCardPrize;
 }
-
-const INITIAL_REELS: ReelGridItem[] = [
-  { id: "1", title: "Dance Drop", plays: 67, scratchUsed: false, prize: PRIZES[0] },
-  { id: "2", title: "Street Food", plays: 45, scratchUsed: false, prize: PRIZES[1] },
-  { id: "3", title: "Sk8 Trick", plays: 100, scratchUsed: false, prize: PRIZES[2] },
-  { id: "4", title: "Mountain View", plays: 23, scratchUsed: false, prize: PRIZES[3] },
-  { id: "5", title: "GRWM", plays: 89, scratchUsed: false, prize: PRIZES[4] },
-  { id: "6", title: "Night Vlog", plays: 12, scratchUsed: false, prize: PRIZES[5] },
-];
 
 const THUMB_IMAGES: Record<string, ImageSourcePropType> = {
   "1": require("../../assets/images/reel1.png"),
@@ -420,15 +411,21 @@ export default function ProfileScreen() {
       const res = await fetch(`${API_BASE}/reels?userId=${user.id}&limit=30`, { headers });
       if (res.ok) {
         const data = await res.json();
-        setReels(
-          (data.items ?? []).map((r: any, i: number): ReelGridItem => ({
-            id: String(r.id),
-            title: r.description ?? "My Reel",
-            plays: 0,
-            scratchUsed: false,
-            prize: PRIZES[i % PRIZES.length],
-          }))
-        );
+        setReels((prev) => {
+          const prevById = new Map(prev.map((r) => [r.id, r]));
+          return (data.items ?? []).map((r: any, i: number): ReelGridItem => {
+            const id = String(r.id);
+            const existing = prevById.get(id);
+            return {
+              id,
+              title: r.description ?? "My Reel",
+              plays: r.views ?? 0,
+              // preserve local "claimed" flag across refetches
+              scratchUsed: existing?.scratchUsed ?? false,
+              prize: existing?.prize ?? PRIZES[i % PRIZES.length],
+            };
+          });
+        });
       }
     } catch {}
   }, [user?.id, token]);
@@ -462,10 +459,14 @@ export default function ProfileScreen() {
     setRefreshing(false);
   }, [fetchReels, fetchPosts]);
 
-  useEffect(() => {
-    fetchReels();
-    fetchPosts();
-  }, [fetchReels, fetchPosts]);
+  // Fetch on mount + whenever the tab regains focus, so view counts stay in sync with the reels feed.
+  // useFocusEffect fires on first focus (mount) too, so a separate useEffect would double-fetch.
+  useFocusEffect(
+    useCallback(() => {
+      fetchReels();
+      fetchPosts();
+    }, [fetchReels, fetchPosts])
+  );
 
   const completedCount = reels.filter((r) => r.plays >= PLAY_MILESTONE && !r.scratchUsed).length;
   const followersList = getUserFollowers(user?.id ?? "");
@@ -476,12 +477,7 @@ export default function ProfileScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setScratchTarget(reel);
     } else {
-      setReels((prev) =>
-        prev.map((r) =>
-          r.id === reel.id ? { ...r, plays: Math.min(r.plays + 1, PLAY_MILESTONE) } : r
-        )
-      );
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      Haptics.selectionAsync();
     }
   };
 
@@ -680,7 +676,7 @@ export default function ProfileScreen() {
                 <Text style={[styles.legendText, { color: colors.mutedForeground }]}>Scratch ready</Text>
               </View>
               <View style={styles.legendItem}>
-                <Text style={[styles.legendText, { color: colors.mutedForeground }]}>Tap to add plays</Text>
+                <Text style={[styles.legendText, { color: colors.mutedForeground }]}>Tap to scratch</Text>
               </View>
             </View>
             <View style={styles.grid}>
@@ -715,7 +711,7 @@ export default function ProfileScreen() {
               })}
             </View>
             <Text style={[styles.tapHint, { color: colors.mutedForeground }]}>
-              Tap any tile to simulate a reel play. At 100 plays, a scratch card unlocks!
+              Each reel tracks real plays. At 100 plays, a scratch card unlocks — tap the tile to claim your prize!
             </Text>
           </>
         )}

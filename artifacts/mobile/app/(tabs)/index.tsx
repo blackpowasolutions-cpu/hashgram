@@ -2,7 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { ResizeMode, Video } from "expo-av";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -11,11 +11,14 @@ import {
   FlatList,
   Image,
   ImageSourcePropType,
+  KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
   ViewToken,
@@ -44,6 +47,7 @@ interface Reel {
   comments: number;
   shares: number;
   views: number;
+  likedByMe: boolean;
   image?: ImageSourcePropType;
   videoUri?: string;
   music: string;
@@ -191,36 +195,104 @@ function GiftSurpriseCard({ item, bottomPad }: { item: GiftItem; bottomPad: numb
 // ─── Reel Item ────────────────────────────────────────────────────────────────
 
 function ReelItem({ item, bottomPad, isActive }: { item: Reel; bottomPad: number; isActive: boolean }) {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { isFollowing, toggleFollow } = useSocial();
-  const [liked, setLiked] = useState(false);
+  const [liked, setLiked] = useState(item.likedByMe);
   const [likeCount, setLikeCount] = useState(item.likes);
   const [heartVisible, setHeartVisible] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const lastTap = useRef(0);
-  const isOwn = item.userId === user?.id;
+  const singleTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isOwn = String(item.userId) === String(user?.id ?? "");
   const following = isFollowing(item.userId);
+
+  // Auto-resume when the reel becomes active again (e.g. user scrolls away & back)
+  useEffect(() => {
+    if (!isActive) setIsPaused(false);
+  }, [isActive]);
+
+  // Keep local optimistic state in sync with refreshed props (e.g. after focus refetch),
+  // but skip the update if we have an in-flight optimistic mutation to avoid clobbering it.
+  const pendingLike = useRef(false);
+  useEffect(() => {
+    if (pendingLike.current) return;
+    setLiked(item.likedByMe);
+    setLikeCount(item.likes);
+  }, [item.likedByMe, item.likes]);
+
+  const sendLike = useCallback(
+    async (shouldLike: boolean): Promise<boolean> => {
+      if (!token) return false;
+      const reelIdNum = Number(item.id);
+      if (!Number.isFinite(reelIdNum)) return false;
+      try {
+        const res = await fetch(`${API_BASE}/reels/${reelIdNum}/like`, {
+          method: shouldLike ? "POST" : "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        return res.ok;
+      } catch {
+        return false;
+      }
+    },
+    [item.id, token]
+  );
+
+  const applyLike = useCallback(
+    async (next: boolean) => {
+      pendingLike.current = true;
+      setLiked(next);
+      setLikeCount((c) => Math.max(0, c + (next ? 1 : -1)));
+      const ok = await sendLike(next);
+      if (!ok) {
+        // Rollback on failure
+        setLiked(!next);
+        setLikeCount((c) => Math.max(0, c + (next ? -1 : 1)));
+      }
+      pendingLike.current = false;
+    },
+    [sendLike]
+  );
 
   const handleLike = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setLiked((prev) => {
-      setLikeCount((c) => (prev ? c - 1 : c + 1));
-      return !prev;
-    });
-  }, []);
+    applyLike(!liked);
+  }, [applyLike, liked]);
 
-  const handleDoubleTap = useCallback(() => {
+  const triggerDoubleTapLike = useCallback(() => {
+    if (!liked) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      applyLike(true);
+    }
+    setHeartVisible(true);
+    setTimeout(() => setHeartVisible(false), 900);
+  }, [applyLike, liked]);
+
+  const handleTap = useCallback(() => {
     const now = Date.now();
-    if (now - lastTap.current < 300) {
-      if (!liked) {
-        setLiked(true);
-        setLikeCount((c) => c + 1);
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-      }
-      setHeartVisible(true);
-      setTimeout(() => setHeartVisible(false), 900);
+    if (singleTapTimer.current && now - lastTap.current < 300) {
+      // Second tap arrived before the pending single-tap fired → it's a double tap
+      clearTimeout(singleTapTimer.current);
+      singleTapTimer.current = null;
+      lastTap.current = 0;
+      triggerDoubleTapLike();
+      return;
     }
     lastTap.current = now;
-  }, [liked]);
+    // Wait briefly to see if a 2nd tap arrives, else toggle pause
+    singleTapTimer.current = setTimeout(() => {
+      singleTapTimer.current = null;
+      lastTap.current = 0; // reset so a subsequent tap can't be reclassified as a double tap
+      setIsPaused((p) => !p);
+      Haptics.selectionAsync();
+    }, 280);
+  }, [triggerDoubleTapLike]);
+
+  useEffect(() => {
+    return () => {
+      if (singleTapTimer.current) clearTimeout(singleTapTimer.current);
+    };
+  }, []);
 
   const handleFollow = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -228,13 +300,13 @@ function ReelItem({ item, bottomPad, isActive }: { item: Reel; bottomPad: number
   }, [item.userId, toggleFollow]);
 
   return (
-    <Pressable style={[styles.reel, { height }]} onPress={handleDoubleTap}>
+    <Pressable style={[styles.reel, { height }]} onPress={handleTap}>
       {item.videoUri && Platform.OS !== "web" ? (
         <Video
           source={{ uri: item.videoUri }}
           style={styles.reelBg}
           resizeMode={ResizeMode.COVER}
-          shouldPlay={isActive}
+          shouldPlay={isActive && !isPaused}
           isLooping
           isMuted={false}
         />
@@ -252,6 +324,14 @@ function ReelItem({ item, bottomPad, isActive }: { item: Reel; bottomPad: number
       {heartVisible && (
         <View style={[styles.heartOverlay, { pointerEvents: "none" }]}>
           <Feather name="heart" size={80} color="#FE2C55" />
+        </View>
+      )}
+
+      {isPaused && isActive && (
+        <View style={[styles.pauseOverlay, { pointerEvents: "none" }]}>
+          <View style={styles.pauseIconBg}>
+            <Feather name="play" size={42} color="#fff" />
+          </View>
         </View>
       )}
 
@@ -351,6 +431,14 @@ export default function FeedScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [uploadToast, setUploadToast] = useState(false);
   const [activeId, setActiveId] = useState<string>(REELS[0]?.id ?? "");
+  const viewedRef = useRef<Set<string>>(new Set());
+
+  // Composer modal state
+  const [composerVisible, setComposerVisible] = useState(false);
+  const [pendingVideoUri, setPendingVideoUri] = useState<string | null>(null);
+  const [composerCaption, setComposerCaption] = useState("");
+  const [composerHashtags, setComposerHashtags] = useState("");
+  const [publishing, setPublishing] = useState(false);
 
   const fetchReels = useCallback(async () => {
     setRefreshing(true);
@@ -370,21 +458,52 @@ export default function FeedScreen() {
           comments: 0,
           shares: 0,
           views: r.views ?? 0,
+          likedByMe: !!r.likedByMe,
           image: r.thumbnailUrl ? ({ uri: r.thumbnailUrl } as any) : undefined,
           videoUri: r.mediaUrl ?? undefined,
           music: r.music ?? "Original Sound",
           avatarColor: "#FF6B9D",
         }));
         setReels(items);
-        if (items.length > 0) setActiveId(items[0].id);
+        if (items.length > 0) setActiveId((prev) => prev || items[0].id);
       }
     } catch {}
     setRefreshing(false);
   }, [token]);
 
+  // Fetch on mount and whenever the screen regains focus so counters stay in sync.
+  // useFocusEffect fires on first focus (i.e. mount) too, so a separate useEffect would double-fetch.
+  useFocusEffect(
+    useCallback(() => {
+      fetchReels();
+    }, [fetchReels])
+  );
+
+  // Report a view for each reel the user lands on (once per session per reel).
+  // Optimistically bump views, then roll back if the request fails so dedupe can retry next focus.
   useEffect(() => {
-    fetchReels();
-  }, [fetchReels]);
+    if (!activeId) return;
+    const reelIdNum = Number(activeId);
+    if (!Number.isFinite(reelIdNum)) return;
+    if (viewedRef.current.has(activeId)) return;
+    viewedRef.current.add(activeId);
+    setReels((prev) =>
+      prev.map((r) => (r.id === activeId ? { ...r, views: r.views + 1 } : r))
+    );
+    const headers: Record<string, string> = {};
+    if (token) headers.Authorization = `Bearer ${token}`;
+    fetch(`${API_BASE}/reels/${reelIdNum}/view`, { method: "POST", headers })
+      .then((res) => {
+        if (!res.ok) throw new Error(`view ${res.status}`);
+      })
+      .catch(() => {
+        // Rollback optimistic bump + allow retry on next focus
+        viewedRef.current.delete(activeId);
+        setReels((prev) =>
+          prev.map((r) => (r.id === activeId ? { ...r, views: Math.max(0, r.views - 1) } : r))
+        );
+      });
+  }, [activeId, token]);
 
   // Build feed: inject a gift surprise card after every 4th reel
   const listData = useMemo<ListItem[]>(() => {
@@ -420,49 +539,82 @@ export default function FeedScreen() {
         quality: 1,
       });
       if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
-        const tempId = `user_${Date.now()}`;
-        const newReel: Reel = {
-          id: tempId,
-          userId: user?.id ?? "1",
-          user: user?.username ?? "@you",
-          displayName: user?.displayName ?? "You",
-          description: "My new reel 🎬 #reels #fyp",
-          likes: 0,
-          comments: 0,
-          shares: 0,
-          views: 0,
-          videoUri: asset.uri,
-          music: "Original Sound",
-          avatarColor: "#FF6B9D",
-        };
-        setReels((prev) => [newReel, ...prev]);
-        setUploadToast(true);
-        setTimeout(() => setUploadToast(false), 2500);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        if (token) {
-          fetch(`${API_BASE}/reels`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({
-              description: "My new reel 🎬 #reels #fyp",
-              mediaUrl: asset.uri,
-              music: "Original Sound",
-            }),
-          })
-            .then((r) => (r.ok ? r.json() : null))
-            .then((data) => {
-              if (data?.id) {
-                setReels((prev) =>
-                  prev.map((r) => (r.id === tempId ? { ...r, id: String(data.id) } : r))
-                );
-              }
-            })
-            .catch(() => {});
-        }
+        setPendingVideoUri(result.assets[0].uri);
+        setComposerCaption("");
+        setComposerHashtags("");
+        setComposerVisible(true);
       }
     } catch {}
-  }, [user, token]);
+  }, []);
+
+  const cancelComposer = useCallback(() => {
+    setComposerVisible(false);
+    setPendingVideoUri(null);
+    setComposerCaption("");
+    setComposerHashtags("");
+  }, []);
+
+  const publishReel = useCallback(async () => {
+    if (!pendingVideoUri || publishing) return;
+    setPublishing(true);
+    // Build description: caption + normalized hashtags
+    const caption = composerCaption.trim();
+    const hashtags = composerHashtags
+      .split(/[\s,]+/)
+      .map((t) => t.trim().replace(/^#+/, ""))
+      .filter(Boolean)
+      .map((t) => `#${t}`)
+      .join(" ");
+    const description = [caption, hashtags].filter(Boolean).join(" ").trim() || "My new reel 🎬";
+
+    const tempId = `user_${Date.now()}`;
+    const newReel: Reel = {
+      id: tempId,
+      userId: user?.id ?? "1",
+      user: user?.username ?? "@you",
+      displayName: user?.displayName ?? "You",
+      description,
+      likes: 0,
+      comments: 0,
+      shares: 0,
+      views: 0,
+      likedByMe: false,
+      videoUri: pendingVideoUri,
+      music: "Original Sound",
+      avatarColor: "#FF6B9D",
+    };
+    setReels((prev) => [newReel, ...prev]);
+    setComposerVisible(false);
+    setPendingVideoUri(null);
+    setComposerCaption("");
+    setComposerHashtags("");
+    setUploadToast(true);
+    setTimeout(() => setUploadToast(false), 2500);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    if (token) {
+      try {
+        const res = await fetch(`${API_BASE}/reels`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            description,
+            mediaUrl: newReel.videoUri,
+            music: "Original Sound",
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.id) {
+            setReels((prev) =>
+              prev.map((r) => (r.id === tempId ? { ...r, id: String(data.id) } : r))
+            );
+          }
+        }
+      } catch {}
+    }
+    setPublishing(false);
+  }, [pendingVideoUri, publishing, composerCaption, composerHashtags, user, token]);
 
   return (
     <View style={styles.container}>
@@ -545,6 +697,74 @@ export default function FeedScreen() {
           </View>
         }
       />
+
+      {/* Composer modal: caption + hashtags before publishing */}
+      <Modal visible={composerVisible} transparent animationType="slide" onRequestClose={cancelComposer}>
+        <KeyboardAvoidingView
+          style={styles.composerBackdrop}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <View style={styles.composerSheet}>
+            <View style={styles.composerHeader}>
+              <TouchableOpacity onPress={cancelComposer} activeOpacity={0.7}>
+                <Text style={styles.composerCancel}>Cancel</Text>
+              </TouchableOpacity>
+              <Text style={styles.composerTitle}>New Reel</Text>
+              <TouchableOpacity
+                onPress={publishReel}
+                activeOpacity={0.85}
+                disabled={publishing}
+                style={[styles.composerPublish, publishing && { opacity: 0.6 }]}
+              >
+                <Text style={styles.composerPublishText}>{publishing ? "Posting..." : "Post"}</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.composerPreview}>
+              {pendingVideoUri && Platform.OS !== "web" ? (
+                <Video
+                  source={{ uri: pendingVideoUri }}
+                  style={StyleSheet.absoluteFill}
+                  resizeMode={ResizeMode.COVER}
+                  shouldPlay
+                  isLooping
+                  isMuted
+                />
+              ) : (
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: "#222", alignItems: "center", justifyContent: "center" }]}>
+                  <Feather name="video" size={36} color="rgba(255,255,255,0.4)" />
+                </View>
+              )}
+            </View>
+
+            <Text style={styles.composerLabel}>Caption / overlay text</Text>
+            <TextInput
+              style={styles.composerInput}
+              value={composerCaption}
+              onChangeText={setComposerCaption}
+              placeholder="Say something about your reel..."
+              placeholderTextColor="rgba(255,255,255,0.35)"
+              multiline
+              maxLength={200}
+            />
+
+            <Text style={styles.composerLabel}>Hashtags</Text>
+            <TextInput
+              style={[styles.composerInput, { minHeight: 44 }]}
+              value={composerHashtags}
+              onChangeText={setComposerHashtags}
+              placeholder="dance fyp viral  (or  #dance #fyp)"
+              placeholderTextColor="rgba(255,255,255,0.35)"
+              autoCapitalize="none"
+              autoCorrect={false}
+              maxLength={120}
+            />
+            <Text style={styles.composerHint}>
+              Separate tags with spaces or commas. The # is optional.
+            </Text>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -630,6 +850,91 @@ const styles = StyleSheet.create({
   reel: { width, backgroundColor: "#000" },
   reelBg: { ...StyleSheet.absoluteFillObject, width },
   gradient: { ...StyleSheet.absoluteFillObject },
+  pauseOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pauseIconBg: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  composerBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.75)",
+    justifyContent: "flex-end",
+  },
+  composerSheet: {
+    backgroundColor: "#101010",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 18,
+    paddingTop: 14,
+    paddingBottom: 28,
+    gap: 12,
+  },
+  composerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingBottom: 6,
+  },
+  composerCancel: {
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 15,
+    fontFamily: "Inter_500Medium",
+  },
+  composerTitle: {
+    color: "#fff",
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+  },
+  composerPublish: {
+    backgroundColor: "#FE2C55",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  composerPublishText: {
+    color: "#fff",
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+  },
+  composerPreview: {
+    height: 180,
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: "#000",
+  },
+  composerLabel: {
+    color: "rgba(255,255,255,0.6)",
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  composerInput: {
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: "#fff",
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    minHeight: 64,
+    textAlignVertical: "top",
+  },
+  composerHint: {
+    color: "rgba(255,255,255,0.4)",
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+  },
   heartOverlay: {
     ...StyleSheet.absoluteFillObject,
     alignItems: "center",
@@ -652,13 +957,24 @@ const styles = StyleSheet.create({
   },
   avatarText: { color: "#fff", fontSize: 18, fontFamily: "Inter_700Bold" },
   followBadge: {
-    width: 22, height: 22, borderRadius: 11,
+    width: 26, height: 26, borderRadius: 13,
     backgroundColor: "#FE2C55",
     alignItems: "center", justifyContent: "center",
-    marginTop: -12,
+    marginTop: -14,
+    borderWidth: 2,
+    borderColor: "#fff",
+    ...(Platform.OS === "web"
+      ? ({ boxShadow: "0 2px 4px rgba(0,0,0,0.4)" } as any)
+      : {
+          shadowColor: "#000",
+          shadowOpacity: 0.4,
+          shadowRadius: 4,
+          shadowOffset: { width: 0, height: 2 },
+          elevation: 4,
+        }),
   },
   followBadgeActive: {
-    backgroundColor: "#555",
+    backgroundColor: "#4CAF50",
   },
   actionBtn: {
     alignItems: "center",
