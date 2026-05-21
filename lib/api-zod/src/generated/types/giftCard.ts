@@ -5,6 +5,7 @@
  * Reels App API
  * OpenAPI spec version: 0.1.0
  */
+import type { GiftCardCardType } from './giftCardCardType';
 
 export interface GiftCard {
   id: number;
@@ -18,5 +19,6 @@ export interface GiftCard {
   emoji: string;
   description: string;
   isActive: boolean;
+  cardType: GiftCardCardType;
   createdAt?: Date;
 }

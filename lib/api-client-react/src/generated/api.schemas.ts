@@ -185,6 +185,15 @@ export interface ReactionInput {
   emoji: string;
 }
 
+export type GiftCardCardType = typeof GiftCardCardType[keyof typeof GiftCardCardType];
+
+
+export const GiftCardCardType = {
+  store: 'store',
+  newsfeed: 'newsfeed',
+  scratch: 'scratch',
+} as const;
+
 export interface GiftCard {
   id: number;
   brand: string;
@@ -197,8 +206,18 @@ export interface GiftCard {
   emoji: string;
   description: string;
   isActive: boolean;
+  cardType: GiftCardCardType;
   createdAt?: string;
 }
+
+export type GiftCardInputCardType = typeof GiftCardInputCardType[keyof typeof GiftCardInputCardType];
+
+
+export const GiftCardInputCardType = {
+  store: 'store',
+  newsfeed: 'newsfeed',
+  scratch: 'scratch',
+} as const;
 
 export interface GiftCardInput {
   brand: string;
@@ -210,7 +229,17 @@ export interface GiftCardInput {
   gradientTo: string;
   emoji: string;
   description: string;
+  cardType?: GiftCardInputCardType;
 }
+
+export type GiftCardUpdateCardType = typeof GiftCardUpdateCardType[keyof typeof GiftCardUpdateCardType];
+
+
+export const GiftCardUpdateCardType = {
+  store: 'store',
+  newsfeed: 'newsfeed',
+  scratch: 'scratch',
+} as const;
 
 export interface GiftCardUpdate {
   brand?: string;
@@ -223,6 +252,7 @@ export interface GiftCardUpdate {
   emoji?: string;
   description?: string;
   isActive?: boolean;
+  cardType?: GiftCardUpdateCardType;
 }
 
 export interface Purchase {
@@ -373,6 +403,19 @@ export type ListPostsParams = {
 page?: number;
 limit?: number;
 };
+
+export type ListGiftCardsParams = {
+type?: ListGiftCardsType;
+};
+
+export type ListGiftCardsType = typeof ListGiftCardsType[keyof typeof ListGiftCardsType];
+
+
+export const ListGiftCardsType = {
+  store: 'store',
+  newsfeed: 'newsfeed',
+  scratch: 'scratch',
+} as const;
 
 export type GetLeaderboardParams = {
 period?: GetLeaderboardPeriod;

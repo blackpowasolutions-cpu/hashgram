@@ -15,6 +15,7 @@ export const giftCardsTable = pgTable("gift_cards", {
   emoji: text("emoji").notNull(),
   description: text("description").notNull(),
   isActive: boolean("is_active").notNull().default(true),
+  cardType: text("card_type").notNull().default("store"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

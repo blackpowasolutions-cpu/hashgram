@@ -1,21 +1,29 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Users, Video, Store, Trophy, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, Video, ShoppingBag, Trophy, LogOut, Newspaper, Ticket, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const navItems = [
+const NAV_ITEMS = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Users", href: "/users", icon: Users },
   { name: "Content", href: "/content", icon: Video },
-  { name: "Store", href: "/store", icon: Store },
   { name: "Leaderboard", href: "/leaderboard", icon: Trophy },
+];
+
+const REWARDS_ITEMS = [
+  { name: "Reels Store", href: "/store/reels", icon: ShoppingBag },
+  { name: "Newsfeed Gifts", href: "/store/newsfeed", icon: Newspaper },
+  { name: "Scratch Cards", href: "/store/scratch", icon: Ticket },
 ];
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, logout, isAuthenticated, isLoading } = useAuth();
   const [location, setLocation] = useLocation();
+
+  const rewardsActive = location.startsWith("/store");
+  const [rewardsOpen, setRewardsOpen] = useState(rewardsActive);
 
   React.useEffect(() => {
     if (!isLoading && !isAuthenticated && location !== "/login") {
@@ -45,17 +53,19 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           </div>
           <h1 className="text-xl font-bold font-sans tracking-tight">Reels Admin</h1>
         </div>
-        
-        <div className="flex-1 p-4 space-y-2 overflow-y-auto">
-          {navItems.map((item) => {
-            const isActive = location === item.href;
+
+        <div className="flex-1 p-4 space-y-1 overflow-y-auto">
+          {NAV_ITEMS.map((item) => {
+            const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
             return (
               <Link key={item.href} href={item.href}>
                 <Button
                   variant={isActive ? "secondary" : "ghost"}
                   className={cn(
                     "w-full justify-start gap-3 h-11 px-4 text-sm font-medium",
-                    isActive ? "bg-secondary text-secondary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                    isActive
+                      ? "bg-secondary text-secondary-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
                   )}
                   data-testid={`nav-${item.name.toLowerCase()}`}
                 >
@@ -65,6 +75,50 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
+
+          {/* Rewards collapsible group */}
+          <div>
+            <Button
+              variant={rewardsActive ? "secondary" : "ghost"}
+              className={cn(
+                "w-full justify-start gap-3 h-11 px-4 text-sm font-medium",
+                rewardsActive
+                  ? "bg-secondary text-secondary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+              )}
+              onClick={() => setRewardsOpen((o) => !o)}
+              data-testid="nav-rewards"
+            >
+              <ShoppingBag className="h-4 w-4" />
+              <span className="flex-1 text-left">Rewards</span>
+              {rewardsOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            </Button>
+
+            {rewardsOpen && (
+              <div className="mt-1 ml-4 space-y-1">
+                {REWARDS_ITEMS.map((item) => {
+                  const isActive = location === item.href || location.startsWith(item.href);
+                  return (
+                    <Link key={item.href} href={item.href}>
+                      <Button
+                        variant={isActive ? "secondary" : "ghost"}
+                        className={cn(
+                          "w-full justify-start gap-3 h-9 px-3 text-sm",
+                          isActive
+                            ? "bg-secondary text-secondary-foreground"
+                            : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                        )}
+                        data-testid={`nav-${item.name.toLowerCase().replace(/\s+/g, "-")}`}
+                      >
+                        <item.icon className="h-3.5 w-3.5" />
+                        {item.name}
+                      </Button>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="p-4 border-t border-border">
@@ -81,8 +135,8 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
               <div className="text-xs text-muted-foreground truncate">{user?.email}</div>
             </div>
           </div>
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             className="w-full justify-start gap-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
             onClick={logout}
             data-testid="button-logout"
@@ -95,9 +149,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden bg-background">
-        <main className="flex-1 overflow-y-auto p-8">
-          {children}
-        </main>
+        <main className="flex-1 overflow-y-auto p-8">{children}</main>
       </div>
     </div>
   );

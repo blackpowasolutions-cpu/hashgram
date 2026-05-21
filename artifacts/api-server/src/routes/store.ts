@@ -18,8 +18,12 @@ function randomCode(): string {
   return Math.random().toString(36).slice(2, 10).toUpperCase();
 }
 
-router.get("/store/cards", async (_req, res: Response): Promise<void> => {
-  const cards = await db.select().from(giftCardsTable).orderBy(giftCardsTable.minLevel, giftCardsTable.pointsCost);
+router.get("/store/cards", async (req: Request, res: Response): Promise<void> => {
+  const type = req.query.type as string | undefined;
+  const query = db.select().from(giftCardsTable);
+  const cards = type
+    ? await query.where(eq(giftCardsTable.cardType, type)).orderBy(giftCardsTable.minLevel, giftCardsTable.pointsCost)
+    : await query.orderBy(giftCardsTable.minLevel, giftCardsTable.pointsCost);
   res.json(cards);
 });
 
@@ -106,6 +110,17 @@ router.post("/store/purchase", requireAuth, async (req: Request, res: Response):
 
   if (user.points < card.pointsCost) {
     res.status(400).json({ error: `Insufficient points. Need ${card.pointsCost}, have ${user.points}.` });
+    return;
+  }
+
+  // Enforce one redemption per user per gift card
+  const existing = await db
+    .select({ id: giftPurchasesTable.id })
+    .from(giftPurchasesTable)
+    .where(and(eq(giftPurchasesTable.userId, req.userId!), eq(giftPurchasesTable.giftCardId, card.id)))
+    .limit(1);
+  if (existing.length > 0) {
+    res.status(409).json({ error: "You have already redeemed this gift card." });
     return;
   }
 

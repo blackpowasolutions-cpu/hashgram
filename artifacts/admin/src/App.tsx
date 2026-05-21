@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,6 +8,8 @@ import Dashboard from "@/pages/dashboard";
 import Users from "@/pages/users";
 import Content from "@/pages/content";
 import Store from "@/pages/store";
+import StoreNewsfeed from "@/pages/store-newsfeed";
+import StoreScratch from "@/pages/store-scratch";
 import Leaderboard from "@/pages/leaderboard";
 import { AuthProvider } from "@/contexts/AuthContext";
 import "@/lib/fetch-interceptor";
@@ -29,7 +31,12 @@ function Router() {
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/users" component={Users} />
       <Route path="/content" component={Content} />
-      <Route path="/store" component={Store} />
+      <Route path="/store/reels" component={Store} />
+      <Route path="/store/newsfeed" component={StoreNewsfeed} />
+      <Route path="/store/scratch" component={StoreScratch} />
+      <Route path="/store">
+        <Redirect to="/store/reels" />
+      </Route>
       <Route path="/leaderboard" component={Leaderboard} />
       <Route component={NotFound} />
     </Switch>

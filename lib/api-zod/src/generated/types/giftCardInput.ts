@@ -5,6 +5,7 @@
  * Reels App API
  * OpenAPI spec version: 0.1.0
  */
+import type { GiftCardInputCardType } from './giftCardInputCardType';
 
 export interface GiftCardInput {
   brand: string;
@@ -16,4 +17,5 @@ export interface GiftCardInput {
   gradientTo: string;
   emoji: string;
   description: string;
+  cardType?: GiftCardInputCardType;
 }

@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Edit2, Trash2 } from "lucide-react";
+import { Plus, Edit2, Trash2, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -23,7 +23,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
-const CARD_TYPE = "store" as const;
+const CARD_TYPE = "newsfeed" as const;
 
 type GiftCardForm = {
   brand: string;
@@ -39,17 +39,17 @@ type GiftCardForm = {
 
 const defaultForm: GiftCardForm = {
   brand: "",
-  category: "Retail",
-  value: "$10",
-  pointsCost: 1000,
+  category: "Reward",
+  value: "$5",
+  pointsCost: 0,
   minLevel: 1,
-  gradientFrom: "#FE2C55",
-  gradientTo: "#20D5EC",
-  emoji: "🎁",
+  gradientFrom: "#4CAF50",
+  gradientTo: "#2196F3",
+  emoji: "🎉",
   description: "",
 };
 
-export default function Store() {
+export default function StoreNewsfeed() {
   const { data: giftCards, isLoading } = useListGiftCards({ type: CARD_TYPE });
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -140,14 +140,19 @@ export default function Store() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Reels Store</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Newsfeed Gift Cards</h1>
             <p className="text-muted-foreground mt-1">
-              Gift cards users can purchase with points in the in-app rewards store.
+              Gift cards awarded when a post reaches the 100 likes milestone. Each card can only be won once per user.
             </p>
           </div>
           <Button onClick={handleOpenCreate} className="gap-2">
             <Plus className="h-4 w-4" /> Add Gift Card
           </Button>
+        </div>
+
+        <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-sm text-blue-400">
+          <Info className="h-4 w-4 mt-0.5 shrink-0" />
+          <span>These cards are awarded for free when a user's post hits 100 likes. The app randomly picks one active card from this pool for each milestone.</span>
         </div>
 
         {isLoading ? (
@@ -163,7 +168,7 @@ export default function Store() {
                   <div className="flex justify-between items-start">
                     <span className="text-3xl filter drop-shadow-md">{card.emoji}</span>
                     <div className="bg-black/20 backdrop-blur-sm px-2 py-1 rounded text-xs font-medium">
-                      Lvl {card.minLevel}+
+                      Free Award
                     </div>
                   </div>
                   <div>
@@ -176,7 +181,7 @@ export default function Store() {
                     <span className="inline-flex items-center rounded-full bg-secondary text-secondary-foreground px-2 py-0.5 text-xs">
                       {card.category}
                     </span>
-                    <div className="font-mono font-bold text-primary">{card.pointsCost.toLocaleString()} pts</div>
+                    <div className="text-xs text-muted-foreground">100 likes milestone</div>
                   </div>
                   <p className="text-xs text-muted-foreground line-clamp-2">{card.description}</p>
                 </CardContent>
@@ -204,6 +209,12 @@ export default function Store() {
                 </CardFooter>
               </Card>
             ))}
+            {!isLoading && (giftCards ?? []).length === 0 && (
+              <div className="col-span-full py-16 text-center text-muted-foreground">
+                <p className="text-lg mb-2">No newsfeed gift cards yet</p>
+                <p className="text-sm">Add cards to the prize pool for the 100 likes milestone.</p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -211,40 +222,24 @@ export default function Store() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{editingId ? "Edit Gift Card" : "Add Gift Card — Reels Store"}</DialogTitle>
+            <DialogTitle>{editingId ? "Edit Gift Card" : "Add Gift Card — Newsfeed Milestone"}</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-4 py-4">
             <div className="space-y-2">
               <Label>Brand Name</Label>
-              <Input value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} placeholder="e.g. Amazon" />
+              <Input value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} placeholder="e.g. Starbucks" />
             </div>
             <div className="space-y-2">
               <Label>Value</Label>
-              <Input value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} placeholder="e.g. $10" />
+              <Input value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} placeholder="e.g. $5" />
             </div>
             <div className="space-y-2">
               <Label>Category</Label>
-              <Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="e.g. Retail" />
+              <Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="e.g. Food & Drink" />
             </div>
             <div className="space-y-2">
               <Label>Emoji</Label>
               <Input value={form.emoji} onChange={(e) => setForm({ ...form, emoji: e.target.value })} />
-            </div>
-            <div className="space-y-2">
-              <Label>Points Cost</Label>
-              <Input
-                type="number"
-                value={form.pointsCost}
-                onChange={(e) => setForm({ ...form, pointsCost: parseInt(e.target.value) || 0 })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Minimum Level Required</Label>
-              <Input
-                type="number"
-                value={form.minLevel}
-                onChange={(e) => setForm({ ...form, minLevel: parseInt(e.target.value) || 1 })}
-              />
             </div>
             <div className="space-y-2">
               <Label>Gradient From</Label>
@@ -256,7 +251,7 @@ export default function Store() {
             </div>
             <div className="col-span-2 space-y-2">
               <Label>Description</Label>
-              <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+              <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="e.g. Enjoy a free coffee on us!" />
             </div>
           </div>
           <DialogFooter>

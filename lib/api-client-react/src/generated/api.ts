@@ -35,6 +35,7 @@ import type {
   ListAdminPostsParams,
   ListAdminReelsParams,
   ListAdminUsersParams,
+  ListGiftCardsParams,
   ListPostsParams,
   ListReelCommentsParams,
   ListReelsParams,
@@ -1926,17 +1927,24 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getRemovePostReactionMutationOptions(options));
     }
 
-export const getListGiftCardsUrl = () => {
+export const getListGiftCardsUrl = (params?: ListGiftCardsParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/store/cards`
+  return stringifiedParams.length > 0 ? `/api/store/cards?${stringifiedParams}` : `/api/store/cards`
 }
 
-export const listGiftCards = async ( options?: RequestInit): Promise<GiftCard[]> => {
+export const listGiftCards = async (params?: ListGiftCardsParams, options?: RequestInit): Promise<GiftCard[]> => {
 
-  return customFetch<GiftCard[]>(getListGiftCardsUrl(),
+  return customFetch<GiftCard[]>(getListGiftCardsUrl(params),
   {
     ...options,
     method: 'GET'
@@ -1949,23 +1957,23 @@ export const listGiftCards = async ( options?: RequestInit): Promise<GiftCard[]>
 
 
 
-export const getListGiftCardsQueryKey = () => {
+export const getListGiftCardsQueryKey = (params?: ListGiftCardsParams,) => {
     return [
-    `/api/store/cards`
+    `/api/store/cards`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getListGiftCardsQueryOptions = <TData = Awaited<ReturnType<typeof listGiftCards>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listGiftCards>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListGiftCardsQueryOptions = <TData = Awaited<ReturnType<typeof listGiftCards>>, TError = ErrorType<unknown>>(params?: ListGiftCardsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listGiftCards>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListGiftCardsQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getListGiftCardsQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listGiftCards>>> = ({ signal }) => listGiftCards({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listGiftCards>>> = ({ signal }) => listGiftCards(params, { signal, ...requestOptions });
 
 
 
@@ -1980,11 +1988,11 @@ export type ListGiftCardsQueryError = ErrorType<unknown>
 
 
 export function useListGiftCards<TData = Awaited<ReturnType<typeof listGiftCards>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listGiftCards>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ params?: ListGiftCardsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listGiftCards>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getListGiftCardsQueryOptions(options)
+  const queryOptions = getListGiftCardsQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

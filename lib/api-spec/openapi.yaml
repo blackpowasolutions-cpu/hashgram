@@ -566,6 +566,13 @@ paths:
     get:
       operationId: listGiftCards
       tags: [store]
+      parameters:
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [store, newsfeed, scratch]
       responses:
         "200":
           description: OK
@@ -1311,7 +1318,7 @@ components:
     # ── Store ──────────────────────────────────────────────────────────────────
     GiftCard:
       type: object
-      required: [id, brand, category, value, pointsCost, minLevel, gradientFrom, gradientTo, emoji, description, isActive]
+      required: [id, brand, category, value, pointsCost, minLevel, gradientFrom, gradientTo, emoji, description, isActive, cardType]
       properties:
         id:
           type: integer
@@ -1335,6 +1342,9 @@ components:
           type: string
         isActive:
           type: boolean
+        cardType:
+          type: string
+          enum: [store, newsfeed, scratch]
         createdAt:
           type: string
           format: date-time
@@ -1361,6 +1371,9 @@ components:
           type: string
         description:
           type: string
+        cardType:
+          type: string
+          enum: [store, newsfeed, scratch]
 
     GiftCardUpdate:
       type: object
@@ -1385,6 +1398,9 @@ components:
           type: string
         isActive:
           type: boolean
+        cardType:
+          type: string
+          enum: [store, newsfeed, scratch]
 
     Purchase:
       type: object

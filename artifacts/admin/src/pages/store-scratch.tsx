@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Edit2, Trash2 } from "lucide-react";
+import { Plus, Edit2, Trash2, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -23,7 +23,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
-const CARD_TYPE = "store" as const;
+const CARD_TYPE = "scratch" as const;
 
 type GiftCardForm = {
   brand: string;
@@ -39,17 +39,17 @@ type GiftCardForm = {
 
 const defaultForm: GiftCardForm = {
   brand: "",
-  category: "Retail",
+  category: "Reward",
   value: "$10",
-  pointsCost: 1000,
+  pointsCost: 0,
   minLevel: 1,
-  gradientFrom: "#FE2C55",
-  gradientTo: "#20D5EC",
-  emoji: "🎁",
+  gradientFrom: "#FF9800",
+  gradientTo: "#E91E63",
+  emoji: "🎰",
   description: "",
 };
 
-export default function Store() {
+export default function StoreScratch() {
   const { data: giftCards, isLoading } = useListGiftCards({ type: CARD_TYPE });
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -90,7 +90,7 @@ export default function Store() {
         { id: editingId, data: form },
         {
           onSuccess: () => {
-            toast({ title: "Gift card updated" });
+            toast({ title: "Scratch card updated" });
             queryClient.invalidateQueries({ queryKey: getListGiftCardsQueryKey({ type: CARD_TYPE }) });
             setDialogOpen(false);
           },
@@ -101,7 +101,7 @@ export default function Store() {
         { data: { ...form, cardType: CARD_TYPE } },
         {
           onSuccess: () => {
-            toast({ title: "Gift card created" });
+            toast({ title: "Scratch card created" });
             queryClient.invalidateQueries({ queryKey: getListGiftCardsQueryKey({ type: CARD_TYPE }) });
             setDialogOpen(false);
           },
@@ -122,12 +122,12 @@ export default function Store() {
   };
 
   const handleDelete = (id: number) => {
-    if (confirm("Delete this gift card?")) {
+    if (confirm("Delete this scratch card prize?")) {
       deleteMutation.mutate(
         { id },
         {
           onSuccess: () => {
-            toast({ title: "Gift card deleted" });
+            toast({ title: "Scratch card deleted" });
             queryClient.invalidateQueries({ queryKey: getListGiftCardsQueryKey({ type: CARD_TYPE }) });
           },
         }
@@ -140,14 +140,19 @@ export default function Store() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Reels Store</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Scratch Cards</h1>
             <p className="text-muted-foreground mt-1">
-              Gift cards users can purchase with points in the in-app rewards store.
+              Prizes revealed when a user unlocks a scratch card at 100 reel plays. Each prize can only be won once per user.
             </p>
           </div>
           <Button onClick={handleOpenCreate} className="gap-2">
-            <Plus className="h-4 w-4" /> Add Gift Card
+            <Plus className="h-4 w-4" /> Add Prize
           </Button>
+        </div>
+
+        <div className="flex items-start gap-2 p-3 rounded-lg bg-orange-500/10 border border-orange-500/20 text-sm text-orange-400">
+          <Info className="h-4 w-4 mt-0.5 shrink-0" />
+          <span>These prizes are revealed when a user scratches a card earned at 100 reel plays. The app randomly picks one active prize per scratch. Each user can only win each prize once.</span>
         </div>
 
         {isLoading ? (
@@ -163,7 +168,7 @@ export default function Store() {
                   <div className="flex justify-between items-start">
                     <span className="text-3xl filter drop-shadow-md">{card.emoji}</span>
                     <div className="bg-black/20 backdrop-blur-sm px-2 py-1 rounded text-xs font-medium">
-                      Lvl {card.minLevel}+
+                      Scratch Prize
                     </div>
                   </div>
                   <div>
@@ -176,7 +181,7 @@ export default function Store() {
                     <span className="inline-flex items-center rounded-full bg-secondary text-secondary-foreground px-2 py-0.5 text-xs">
                       {card.category}
                     </span>
-                    <div className="font-mono font-bold text-primary">{card.pointsCost.toLocaleString()} pts</div>
+                    <div className="text-xs text-muted-foreground">100 plays unlock</div>
                   </div>
                   <p className="text-xs text-muted-foreground line-clamp-2">{card.description}</p>
                 </CardContent>
@@ -204,6 +209,12 @@ export default function Store() {
                 </CardFooter>
               </Card>
             ))}
+            {!isLoading && (giftCards ?? []).length === 0 && (
+              <div className="col-span-full py-16 text-center text-muted-foreground">
+                <p className="text-lg mb-2">No scratch card prizes yet</p>
+                <p className="text-sm">Add prizes to the pool that users can win by scratching their earned cards.</p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -211,40 +222,24 @@ export default function Store() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{editingId ? "Edit Gift Card" : "Add Gift Card — Reels Store"}</DialogTitle>
+            <DialogTitle>{editingId ? "Edit Scratch Prize" : "Add Scratch Prize"}</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-4 py-4">
             <div className="space-y-2">
               <Label>Brand Name</Label>
-              <Input value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} placeholder="e.g. Amazon" />
+              <Input value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} placeholder="e.g. Netflix" />
             </div>
             <div className="space-y-2">
-              <Label>Value</Label>
-              <Input value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} placeholder="e.g. $10" />
+              <Label>Value / Prize</Label>
+              <Input value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} placeholder="e.g. 1 Month Free" />
             </div>
             <div className="space-y-2">
               <Label>Category</Label>
-              <Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="e.g. Retail" />
+              <Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="e.g. Entertainment" />
             </div>
             <div className="space-y-2">
               <Label>Emoji</Label>
               <Input value={form.emoji} onChange={(e) => setForm({ ...form, emoji: e.target.value })} />
-            </div>
-            <div className="space-y-2">
-              <Label>Points Cost</Label>
-              <Input
-                type="number"
-                value={form.pointsCost}
-                onChange={(e) => setForm({ ...form, pointsCost: parseInt(e.target.value) || 0 })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Minimum Level Required</Label>
-              <Input
-                type="number"
-                value={form.minLevel}
-                onChange={(e) => setForm({ ...form, minLevel: parseInt(e.target.value) || 1 })}
-              />
             </div>
             <div className="space-y-2">
               <Label>Gradient From</Label>
@@ -256,7 +251,7 @@ export default function Store() {
             </div>
             <div className="col-span-2 space-y-2">
               <Label>Description</Label>
-              <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+              <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="e.g. Watch anything on Netflix for a month." />
             </div>
           </div>
           <DialogFooter>
