@@ -324,7 +324,7 @@ router.post("/reels/:id/view", optionalAuth, async (req: Request, res: Response)
     db.update(reelsTable).set({ views: sql`${reelsTable.views} + 1` }).where(eq(reelsTable.id, id)),
   ];
 
-  if (req.userId && req.userId !== reel.userId) {
+  if (req.userId) {
     ops.push(
       db.insert(pointsLogTable).values({ userId: req.userId, amount: 1, reason: "reel_play" }),
       db.update(usersTable).set({ points: sql`${usersTable.points} + 1` }).where(eq(usersTable.id, req.userId))
