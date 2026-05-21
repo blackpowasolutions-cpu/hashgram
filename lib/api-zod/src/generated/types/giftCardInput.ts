@@ -18,4 +18,5 @@ export interface GiftCardInput {
   emoji: string;
   description: string;
   cardType?: GiftCardInputCardType;
+  quantity?: number | null;
 }

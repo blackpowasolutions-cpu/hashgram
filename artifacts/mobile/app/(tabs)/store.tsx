@@ -40,6 +40,7 @@ interface ApiGiftCard {
   gradient: [string, string];
   emoji: string;
   description: string;
+  remaining: number | null;
 }
 
 const { width } = Dimensions.get("window");
@@ -144,12 +145,13 @@ function GiftCardTile({
   onPress: () => void;
 }) {
   const locked = userLevel < card.minLevel;
+  const isDepleted = card.remaining === 0;
   const canAfford = userPoints >= card.pointsCost;
   const levelInfo = LEVEL_THRESHOLDS.find((t) => t.level === card.minLevel)!;
 
   return (
     <TouchableOpacity
-      style={[styles.cardTile, locked && styles.cardTileLocked]}
+      style={[styles.cardTile, (locked || isDepleted) && styles.cardTileLocked]}
       onPress={onPress}
       activeOpacity={locked ? 0.9 : 0.8}
     >
@@ -162,6 +164,16 @@ function GiftCardTile({
               <Text style={[styles.lockText, { color: levelInfo.color }]}>
                 Lv {card.minLevel}+
               </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Depleted overlay */}
+        {isDepleted && !locked && !isRedeemed && (
+          <View style={styles.redeemedOverlay}>
+            <View style={[styles.redeemedBadge, { backgroundColor: "rgba(0,0,0,0.7)" }]}>
+              <Text style={{ fontSize: 14 }}>😔</Text>
+              <Text style={[styles.redeemedText, { color: "#FFB74D" }]}>Sold Out</Text>
             </View>
           </View>
         )}
@@ -184,12 +196,14 @@ function GiftCardTile({
         <Text style={styles.cardBrand} numberOfLines={1}>{card.brand}</Text>
         <Text style={styles.cardValue}>{card.value}</Text>
 
-        {/* Points cost */}
+        {/* Points cost or remaining pool */}
         <View
           style={[
             styles.cardCost,
             {
-              backgroundColor: locked
+              backgroundColor: isDepleted
+                ? "rgba(255,183,77,0.25)"
+                : locked
                 ? "rgba(255,255,255,0.1)"
                 : canAfford
                 ? "rgba(255,255,255,0.2)"
@@ -197,9 +211,20 @@ function GiftCardTile({
             },
           ]}
         >
-          <Text style={[styles.cardCostText, !canAfford && !locked && { color: "#FF8A80" }]}>
-            {formatPoints(card.pointsCost)} pts
-          </Text>
+          {isDepleted ? (
+            <Text style={[styles.cardCostText, { color: "#FFB74D" }]}>Sold Out</Text>
+          ) : (
+            <>
+              <Text style={[styles.cardCostText, !canAfford && !locked && { color: "#FF8A80" }]}>
+                {formatPoints(card.pointsCost)} pts
+              </Text>
+              {card.remaining !== null && card.remaining > 0 && card.remaining <= 10 && (
+                <Text style={[styles.cardCostText, { color: "#FFB74D", fontSize: 9, marginTop: 1 }]}>
+                  {card.remaining} left
+                </Text>
+              )}
+            </>
+          )}
         </View>
       </LinearGradient>
     </TouchableOpacity>
@@ -211,6 +236,7 @@ function GiftCardTile({
 type ModalState =
   | { phase: "confirm"; card: ApiGiftCard }
   | { phase: "success"; card: ApiGiftCard; code: string }
+  | { phase: "depleted"; card: ApiGiftCard }
   | null;
 
 function RedeemModal({
@@ -326,6 +352,36 @@ function RedeemModal({
                   </TouchableOpacity>
                 </View>
               </>
+            ) : state.phase === "depleted" ? (
+              <>
+                {/* Depleted state */}
+                <View style={styles.successIcon}>
+                  <Text style={{ fontSize: 48 }}>😔</Text>
+                </View>
+                <Text style={[styles.modalTitle, { color: colors.foreground }]}>
+                  All Gone for Now
+                </Text>
+                <Text style={[styles.modalSubtitle, { color: colors.mutedForeground }]}>
+                  The {card.brand} {card.value} gift card pool has been fully claimed by other fans.
+                </Text>
+
+                <View style={[styles.costBreakdown, { backgroundColor: colors.muted }]}>
+                  <Text style={[styles.costLabel, { color: colors.foreground, textAlign: "center", fontFamily: "Inter_600SemiBold" }]}>
+                    Keep earning points!
+                  </Text>
+                  <Text style={[styles.modalSubtitle, { color: colors.mutedForeground, fontSize: 13 }]}>
+                    New gift card pools are added regularly. Stay active, rack up points, and check back soon — the next batch could drop any time!
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.doneBtn, { backgroundColor: "#FF9800" }]}
+                  onPress={onClose}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.doneBtnText}>Got it, I'll be back!</Text>
+                </TouchableOpacity>
+              </>
             ) : (
               <>
                 {/* Success state */}
@@ -401,6 +457,7 @@ export default function StoreScreen() {
             gradient: [c.gradientFrom ?? "#333", c.gradientTo ?? "#111"] as [string, string],
             emoji: c.emoji ?? "🎁",
             description: c.description ?? "",
+            remaining: c.remaining ?? null,
           }))
         );
       }
@@ -433,6 +490,11 @@ export default function StoreScreen() {
       setModalState({ phase: "success", card, code: rec.code });
       return;
     }
+    if (card.remaining === 0) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      setModalState({ phase: "depleted", card });
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setModalState({ phase: "confirm", card });
   };
@@ -451,6 +513,15 @@ export default function StoreScreen() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ giftCardId: card.id }),
       });
+      if (res.status === 410) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        setModalState({ phase: "depleted", card: modalState.card });
+        // Update local card's remaining to 0 so tile reflects it immediately
+        setApiCards((prev) =>
+          prev.map((c) => (c.id === card.id ? { ...c, remaining: 0 } : c))
+        );
+        return;
+      }
       if (!res.ok) throw new Error("Purchase failed");
       const data = await res.json();
       recordPurchase(

@@ -35,6 +35,7 @@ type GiftCardForm = {
   gradientTo: string;
   emoji: string;
   description: string;
+  quantity: number | null;
 };
 
 const defaultForm: GiftCardForm = {
@@ -47,6 +48,7 @@ const defaultForm: GiftCardForm = {
   gradientTo: "#20D5EC",
   emoji: "🎁",
   description: "",
+  quantity: null,
 };
 
 export default function Store() {
@@ -80,6 +82,7 @@ export default function Store() {
       gradientTo: card.gradientTo,
       emoji: card.emoji,
       description: card.description,
+      quantity: card.quantity ?? null,
     });
     setDialogOpen(true);
   };
@@ -179,6 +182,15 @@ export default function Store() {
                     <div className="font-mono font-bold text-primary">{card.pointsCost.toLocaleString()} pts</div>
                   </div>
                   <p className="text-xs text-muted-foreground line-clamp-2">{card.description}</p>
+                  {(card as any).quantity != null && (
+                    <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+                      <span>Pool:</span>
+                      <span className={(card as any).remaining === 0 ? "text-destructive font-semibold" : "font-semibold"}>
+                        {(card as any).remaining ?? (card as any).quantity}/{(card as any).quantity}
+                      </span>
+                      {(card as any).remaining === 0 && <span className="text-destructive">• Depleted</span>}
+                    </div>
+                  )}
                 </CardContent>
                 <CardFooter className="p-4 pt-0 border-t border-border mt-auto flex justify-between items-center">
                   <div className="flex items-center gap-2">
@@ -253,6 +265,16 @@ export default function Store() {
             <div className="space-y-2">
               <Label>Gradient To</Label>
               <Input type="color" value={form.gradientTo} onChange={(e) => setForm({ ...form, gradientTo: e.target.value })} className="h-10" />
+            </div>
+            <div className="space-y-2">
+              <Label>Pool Size</Label>
+              <Input
+                type="number"
+                placeholder="Unlimited"
+                value={form.quantity ?? ""}
+                onChange={(e) => setForm({ ...form, quantity: e.target.value ? parseInt(e.target.value) : null })}
+              />
+              <p className="text-xs text-muted-foreground">Max total redemptions. Empty = unlimited.</p>
             </div>
             <div className="col-span-2 space-y-2">
               <Label>Description</Label>

@@ -428,6 +428,8 @@ export const ListGiftCardsResponseItem = zod.object({
   "description": zod.string(),
   "isActive": zod.boolean(),
   "cardType": zod.enum(['store', 'newsfeed', 'scratch']),
+  "quantity": zod.number().nullish(),
+  "remaining": zod.number().nullish(),
   "createdAt": zod.coerce.date().optional()
 })
 export const ListGiftCardsResponse = zod.array(ListGiftCardsResponseItem)
@@ -443,7 +445,8 @@ export const CreateGiftCardBody = zod.object({
   "gradientTo": zod.string(),
   "emoji": zod.string(),
   "description": zod.string(),
-  "cardType": zod.enum(['store', 'newsfeed', 'scratch']).optional()
+  "cardType": zod.enum(['store', 'newsfeed', 'scratch']).optional(),
+  "quantity": zod.number().nullish()
 })
 
 
@@ -462,7 +465,8 @@ export const UpdateGiftCardBody = zod.object({
   "emoji": zod.string().optional(),
   "description": zod.string().optional(),
   "isActive": zod.boolean().optional(),
-  "cardType": zod.enum(['store', 'newsfeed', 'scratch']).optional()
+  "cardType": zod.enum(['store', 'newsfeed', 'scratch']).optional(),
+  "quantity": zod.number().nullish()
 })
 
 export const UpdateGiftCardResponse = zod.object({
@@ -478,6 +482,8 @@ export const UpdateGiftCardResponse = zod.object({
   "description": zod.string(),
   "isActive": zod.boolean(),
   "cardType": zod.enum(['store', 'newsfeed', 'scratch']),
+  "quantity": zod.number().nullish(),
+  "remaining": zod.number().nullish(),
   "createdAt": zod.coerce.date().optional()
 })
 
@@ -509,6 +515,8 @@ export const ListPurchasesResponseItem = zod.object({
   "description": zod.string(),
   "isActive": zod.boolean(),
   "cardType": zod.enum(['store', 'newsfeed', 'scratch']),
+  "quantity": zod.number().nullish(),
+  "remaining": zod.number().nullish(),
   "createdAt": zod.coerce.date().optional()
 }).optional(),
   "code": zod.string(),

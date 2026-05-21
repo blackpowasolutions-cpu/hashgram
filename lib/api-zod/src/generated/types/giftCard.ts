@@ -20,5 +20,7 @@ export interface GiftCard {
   description: string;
   isActive: boolean;
   cardType: GiftCardCardType;
+  quantity?: number | null;
+  remaining?: number | null;
   createdAt?: Date;
 }

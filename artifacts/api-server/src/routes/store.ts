@@ -24,7 +24,20 @@ router.get("/store/cards", async (req: Request, res: Response): Promise<void> =>
   const cards = type
     ? await query.where(eq(giftCardsTable.cardType, type)).orderBy(giftCardsTable.minLevel, giftCardsTable.pointsCost)
     : await query.orderBy(giftCardsTable.minLevel, giftCardsTable.pointsCost);
-  res.json(cards);
+
+  // Compute remaining pool per card
+  const purchaseCounts = await db
+    .select({ giftCardId: giftPurchasesTable.giftCardId, count: sql<number>`cast(count(*) as int)` })
+    .from(giftPurchasesTable)
+    .groupBy(giftPurchasesTable.giftCardId);
+  const countMap = new Map(purchaseCounts.map((p) => [p.giftCardId, p.count]));
+
+  res.json(
+    cards.map((c) => ({
+      ...c,
+      remaining: c.quantity !== null ? Math.max(0, c.quantity - (countMap.get(c.id) ?? 0)) : null,
+    }))
+  );
 });
 
 router.post("/store/cards", requireAdmin, async (req: Request, res: Response): Promise<void> => {
@@ -111,6 +124,18 @@ router.post("/store/purchase", requireAuth, async (req: Request, res: Response):
   if (user.points < card.pointsCost) {
     res.status(400).json({ error: `Insufficient points. Need ${card.pointsCost}, have ${user.points}.` });
     return;
+  }
+
+  // Enforce pool limit: check total redemptions against quantity
+  if (card.quantity !== null) {
+    const [{ totalPurchases }] = await db
+      .select({ totalPurchases: sql<number>`cast(count(*) as int)` })
+      .from(giftPurchasesTable)
+      .where(eq(giftPurchasesTable.giftCardId, card.id));
+    if (totalPurchases >= card.quantity) {
+      res.status(410).json({ error: "This gift card pool has been depleted. Check back next time!" });
+      return;
+    }
   }
 
   // Enforce one redemption per user per gift card

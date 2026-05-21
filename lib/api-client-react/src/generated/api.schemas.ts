@@ -207,6 +207,8 @@ export interface GiftCard {
   description: string;
   isActive: boolean;
   cardType: GiftCardCardType;
+  quantity?: number | null;
+  remaining?: number | null;
   createdAt?: string;
 }
 
@@ -230,6 +232,7 @@ export interface GiftCardInput {
   emoji: string;
   description: string;
   cardType?: GiftCardInputCardType;
+  quantity?: number | null;
 }
 
 export type GiftCardUpdateCardType = typeof GiftCardUpdateCardType[keyof typeof GiftCardUpdateCardType];
@@ -253,6 +256,7 @@ export interface GiftCardUpdate {
   description?: string;
   isActive?: boolean;
   cardType?: GiftCardUpdateCardType;
+  quantity?: number | null;
 }
 
 export interface Purchase {

@@ -19,4 +19,5 @@ export interface GiftCardUpdate {
   description?: string;
   isActive?: boolean;
   cardType?: GiftCardUpdateCardType;
+  quantity?: number | null;
 }
