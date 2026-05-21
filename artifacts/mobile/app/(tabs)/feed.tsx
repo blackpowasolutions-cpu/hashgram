@@ -358,6 +358,33 @@ function ReactionPicker({
 
 // ─── Post Card ───────────────────────────────────────────────────────────────
 
+function PostImage({ source }: { source: number | string }) {
+  const [aspectRatio, setAspectRatio] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (typeof source === "string") {
+      Image.getSize(
+        source,
+        (w, h) => setAspectRatio(h > 0 ? w / h : 4 / 3),
+        () => setAspectRatio(4 / 3),
+      );
+    } else {
+      const asset = Image.resolveAssetSource(source);
+      setAspectRatio(asset.height > 0 ? asset.width / asset.height : 4 / 3);
+    }
+  }, [source]);
+
+  if (!aspectRatio) return null;
+
+  return (
+    <Image
+      source={typeof source === "string" ? { uri: source } : source}
+      style={[styles.cardImage, { aspectRatio }]}
+      resizeMode="contain"
+    />
+  );
+}
+
 function PostCard({
   post,
   onReact,
@@ -439,13 +466,7 @@ function PostCard({
       <Text style={[styles.cardContent, { color: colors.foreground }]}>{post.content}</Text>
 
       {/* Image */}
-      {post.image && (
-        <Image
-          source={typeof post.image === "string" ? { uri: post.image } : post.image}
-          style={styles.cardImage}
-          resizeMode="cover"
-        />
-      )}
+      {post.image && <PostImage source={post.image} />}
 
       {/* Likes progress bar — own posts only */}
       {isOwnPost && (
@@ -1089,7 +1110,6 @@ const styles = StyleSheet.create({
   },
   cardImage: {
     width: "100%",
-    height: width * 0.65,
   },
 
   // Reaction summary
