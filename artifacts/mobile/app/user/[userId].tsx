@@ -1,8 +1,9 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Dimensions,
   FlatList,
   Image,
@@ -23,7 +24,6 @@ import {
   APP_USERS,
   CONTACT_ID_MAP,
   USER_FEED_POSTS,
-  USER_REELS,
   useSocial,
   type AppUser,
 } from "@/context/SocialContext";
@@ -33,6 +33,11 @@ const { width } = Dimensions.get("window");
 const GAP = 1.5;
 const THUMB_SIZE = (width - GAP * 2) / 3;
 
+const API_BASE = process.env.EXPO_PUBLIC_DOMAIN
+  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`
+  : "/api";
+
+// Still used for post image previews
 const REEL_IMAGES: Record<string, ImageSourcePropType> = {
   reel1: require("../../assets/images/reel1.png"),
   reel2: require("../../assets/images/reel2.png"),
@@ -40,6 +45,13 @@ const REEL_IMAGES: Record<string, ImageSourcePropType> = {
   reel4: require("../../assets/images/reel4.png"),
   reel5: require("../../assets/images/reel5.png"),
 };
+
+interface ApiReel {
+  id: string;
+  thumbnailUrl?: string;
+  views: number;
+  description?: string;
+}
 
 function formatCount(n: number): string {
   if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
@@ -145,12 +157,14 @@ export default function UserProfileScreen() {
   const { userId } = useLocalSearchParams<{ userId: string }>();
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user: authUser } = useAuth();
+  const { user: authUser, token } = useAuth();
   const { isFollowing, toggleFollow, getUser, getUserFollowers, getUserFollowing } = useSocial();
 
   const [activeTab, setActiveTab] = useState<"reels" | "posts">("reels");
   const [showFollowers, setShowFollowers] = useState(false);
   const [showFollowing, setShowFollowing] = useState(false);
+  const [apiReels, setApiReels] = useState<ApiReel[]>([]);
+  const [reelsLoading, setReelsLoading] = useState(true);
 
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const bottomPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
@@ -160,9 +174,34 @@ export default function UserProfileScreen() {
   const following = isFollowing(userId ?? "");
 
   const feedPosts = USER_FEED_POSTS[userId ?? ""] ?? [];
-  const reels = USER_REELS[userId ?? ""] ?? [];
   const followersList = getUserFollowers(userId ?? "");
   const followingList = getUserFollowing(userId ?? "");
+
+  const fetchReels = useCallback(async () => {
+    if (!userId) return;
+    setReelsLoading(true);
+    try {
+      const headers: Record<string, string> = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await fetch(`${API_BASE}/reels?userId=${userId}&limit=50`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setApiReels(
+          (data.items ?? []).map((r: any): ApiReel => ({
+            id: String(r.id),
+            thumbnailUrl: r.thumbnailUrl ?? undefined,
+            views: r.views ?? 0,
+            description: r.description ?? "",
+          }))
+        );
+      }
+    } catch {}
+    setReelsLoading(false);
+  }, [userId, token]);
+
+  useEffect(() => {
+    fetchReels();
+  }, [fetchReels]);
 
   if (!profileUser) {
     return (
@@ -203,7 +242,7 @@ export default function UserProfileScreen() {
           <View style={styles.statsRow}>
             <TouchableOpacity style={styles.stat} activeOpacity={0.7}>
               <Text style={[styles.statNum, { color: colors.foreground }]}>
-                {formatCount(reels.length + feedPosts.length)}
+                {formatCount(apiReels.length + feedPosts.length)}
               </Text>
               <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Posts</Text>
             </TouchableOpacity>
@@ -333,24 +372,34 @@ export default function UserProfileScreen() {
         {/* Reels Grid */}
         {activeTab === "reels" && (
           <>
-            {reels.length === 0 ? (
+            {reelsLoading ? (
+              <View style={styles.emptyState}>
+                <ActivityIndicator color="#FE2C55" />
+              </View>
+            ) : apiReels.length === 0 ? (
               <View style={styles.emptyState}>
                 <Feather name="video" size={40} color={colors.mutedForeground} />
                 <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No reels yet</Text>
               </View>
             ) : (
               <View style={styles.grid}>
-                {reels.map((reel) => (
+                {apiReels.map((reel) => (
                   <View key={reel.id} style={styles.thumb}>
-                    <Image
-                      source={REEL_IMAGES[reel.imageKey] ?? REEL_IMAGES.reel1}
-                      style={styles.thumbImg}
-                      resizeMode="cover"
-                    />
+                    {reel.thumbnailUrl ? (
+                      <Image
+                        source={{ uri: reel.thumbnailUrl }}
+                        style={styles.thumbImg}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={[styles.thumbImg, { backgroundColor: "#1a1a1a", alignItems: "center", justifyContent: "center" }]}>
+                        <Feather name="video" size={22} color="rgba(255,255,255,0.2)" />
+                      </View>
+                    )}
                     <View style={styles.thumbDark} />
                     <View style={styles.thumbBottom}>
                       <Feather name="play" size={10} color="rgba(255,255,255,0.9)" />
-                      <Text style={styles.thumbViews}>{formatCount(reel.plays)}</Text>
+                      <Text style={styles.thumbViews}>{formatCount(reel.views)}</Text>
                     </View>
                   </View>
                 ))}
