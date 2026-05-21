@@ -78,16 +78,9 @@ interface ReelGridItem {
   plays: number;
   scratchUsed: boolean;
   prize: GiftCardPrize;
+  thumbnailUrl?: string;
+  mediaUrl?: string;
 }
-
-const THUMB_IMAGES: Record<string, ImageSourcePropType> = {
-  "1": require("../../assets/images/reel1.png"),
-  "2": require("../../assets/images/reel2.png"),
-  "3": require("../../assets/images/reel3.png"),
-  "4": require("../../assets/images/reel4.png"),
-  "5": require("../../assets/images/reel5.png"),
-  "6": require("../../assets/images/reel1.png"),
-};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -367,14 +360,6 @@ function UserListModal({
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
-const THUMB_LIST = [
-  require("../../assets/images/reel1.png"),
-  require("../../assets/images/reel2.png"),
-  require("../../assets/images/reel3.png"),
-  require("../../assets/images/reel4.png"),
-  require("../../assets/images/reel5.png"),
-];
-
 interface OwnPost {
   id: string;
   content: string;
@@ -423,6 +408,8 @@ export default function ProfileScreen() {
               // preserve local "claimed" flag across refetches
               scratchUsed: existing?.scratchUsed ?? false,
               prize: existing?.prize ?? PRIZES[i % PRIZES.length],
+              thumbnailUrl: r.thumbnailUrl ?? undefined,
+              mediaUrl: r.mediaUrl ?? undefined,
             };
           });
         });
@@ -690,14 +677,20 @@ export default function ProfileScreen() {
                     onPress={() => handleTilePress(reel)}
                     android_ripple={{ color: "#333" }}
                   >
-                    <Image source={THUMB_IMAGES[reel.id] ?? THUMB_LIST[(parseInt(reel.id, 10) || 0) % THUMB_LIST.length]} style={styles.thumbImg} resizeMode="cover" />
+                    {reel.thumbnailUrl ? (
+                      <Image source={{ uri: reel.thumbnailUrl }} style={styles.thumbImg} resizeMode="cover" />
+                    ) : (
+                      <View style={[styles.thumbImg, { backgroundColor: "#1a1a1a", alignItems: "center", justifyContent: "center" }]}>
+                        <Feather name="video" size={28} color="rgba(255,255,255,0.25)" />
+                      </View>
+                    )}
                     <View style={styles.thumbDark} />
                     <TilePlayIndicator reel={reel} onTap={() => setScratchTarget(reel)} />
                     <View style={styles.thumbBottom}>
                       <Feather name="play" size={10} color="rgba(255,255,255,0.8)" />
                       <Text style={styles.thumbViews}>
-                        {reel.plays >= PLAY_MILESTONE ? "100" : reel.plays}
-                        <Text style={styles.thumbMilestone}>/100</Text>
+                        {formatCount(reel.plays)}
+                        {reel.plays < PLAY_MILESTONE && <Text style={styles.thumbMilestone}>/100</Text>}
                       </Text>
                     </View>
                     {isUsed && (
