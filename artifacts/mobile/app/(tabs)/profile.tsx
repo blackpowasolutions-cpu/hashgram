@@ -470,8 +470,8 @@ export default function ProfileScreen() {
     if (!referralCode) return;
     try {
       await Share.share({
-        message: `Join me on Reels and earn bonus points! Use my referral code: ${referralCode}`,
-        title: "Join Reels with my code",
+        message: `Join me on HashGram and earn bonus points! Use my referral code: ${referralCode}`,
+        title: "Join HashGram with my code",
       });
     } catch {}
   };

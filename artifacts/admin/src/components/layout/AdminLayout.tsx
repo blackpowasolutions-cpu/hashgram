@@ -13,7 +13,7 @@ const NAV_ITEMS = [
 ];
 
 const REWARDS_ITEMS = [
-  { name: "Reels Store", href: "/store/reels", icon: ShoppingBag },
+  { name: "HashGram Store", href: "/store/reels", icon: ShoppingBag },
   { name: "Newsfeed Gifts", href: "/store/newsfeed", icon: Newspaper },
   { name: "Scratch Cards", href: "/store/scratch", icon: Ticket },
   { name: "Reward Settings", href: "/rewards/settings", icon: Settings2 },
@@ -58,7 +58,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-lg">
             R
           </div>
-          <h1 className="text-xl font-bold font-sans tracking-tight">Reels Admin</h1>
+          <h1 className="text-xl font-bold font-sans tracking-tight">HashGram Admin</h1>
         </div>
 
         <div className="flex-1 p-4 space-y-1 overflow-y-auto">

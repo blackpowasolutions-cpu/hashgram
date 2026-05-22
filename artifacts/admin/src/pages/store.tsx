@@ -143,7 +143,7 @@ export default function Store() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Reels Store</h1>
+            <h1 className="text-3xl font-bold tracking-tight">HashGram Store</h1>
             <p className="text-muted-foreground mt-1">
               Gift cards users can purchase with points in the in-app rewards store.
             </p>
@@ -223,7 +223,7 @@ export default function Store() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{editingId ? "Edit Gift Card" : "Add Gift Card — Reels Store"}</DialogTitle>
+            <DialogTitle>{editingId ? "Edit Gift Card" : "Add Gift Card — HashGram Store"}</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-4 py-4">
             <div className="space-y-2">

@@ -1,4 +1,4 @@
-# Reels App
+# HashGram
 
 A TikTok-style vertical reels mobile app built with Expo/React Native, featuring social feeds, messaging, gifting, and gamification.
 

@@ -103,7 +103,7 @@ export default function RegisterScreen() {
             <Feather name="arrow-left" size={22} color="#fff" />
           </TouchableOpacity>
           <View style={styles.logoRow}>
-            <Text style={styles.logoText}>Reels</Text>
+            <Text style={styles.logoText}>HashGram</Text>
             <Text style={styles.tagline}>Create your account</Text>
           </View>
         </View>

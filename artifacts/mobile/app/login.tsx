@@ -69,7 +69,7 @@ export default function LoginScreen() {
         paddingBottom: insets.bottom + (Platform.OS === "web" ? 34 : 0),
       }]}>
         <View style={styles.logoRow}>
-          <Text style={styles.logoText}>Reels</Text>
+          <Text style={styles.logoText}>HashGram</Text>
           <Text style={styles.tagline}>Share your world</Text>
         </View>
 
