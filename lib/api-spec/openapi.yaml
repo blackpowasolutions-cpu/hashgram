@@ -20,6 +20,7 @@ tags:
   - name: messages
   - name: admin
   - name: storage
+  - name: ads
 
 paths:
   # ── Health ───────────────────────────────────────────────────────────────────
@@ -803,6 +804,39 @@ paths:
                     type: boolean
         "400":
           description: Invalid or already-used code
+
+  # ── Ads ──────────────────────────────────────────────────────────────────────
+  /ads/config:
+    get:
+      operationId: getAdsConfig
+      tags: [ads]
+      summary: Get AdMob configuration
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdMobConfig"
+    patch:
+      operationId: updateAdsConfig
+      tags: [ads]
+      summary: Update AdMob configuration (admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdMobConfigUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdMobConfig"
 
   # ── Leaderboard ──────────────────────────────────────────────────────────────
   /leaderboard:
@@ -1896,4 +1930,88 @@ components:
         referralEngagementLevel5Points:
           type: integer
           minimum: 0
+
+    AdMobConfig:
+      type: object
+      required:
+        - enabled
+        - androidAppId
+        - iosAppId
+        - interstitialAndroidUnitId
+        - interstitialIosUnitId
+        - nativeAndroidUnitId
+        - nativeIosUnitId
+        - appOpenAndroidUnitId
+        - appOpenIosUnitId
+        - interstitialFrequency
+        - interstitialCooldownSeconds
+        - nativeAdInterval
+      properties:
+        enabled:
+          type: boolean
+          description: Whether ads are enabled globally
+        androidAppId:
+          type: string
+          description: AdMob Android App ID (ca-app-pub-XXXXXXXXXXXXXXXX~XXXXXXXXXX)
+        iosAppId:
+          type: string
+          description: AdMob iOS App ID (ca-app-pub-XXXXXXXXXXXXXXXX~XXXXXXXXXX)
+        interstitialAndroidUnitId:
+          type: string
+          description: Interstitial ad unit ID for Android
+        interstitialIosUnitId:
+          type: string
+          description: Interstitial ad unit ID for iOS
+        nativeAndroidUnitId:
+          type: string
+          description: Native ad unit ID for Android (shown in reels feed)
+        nativeIosUnitId:
+          type: string
+          description: Native ad unit ID for iOS (shown in reels feed)
+        appOpenAndroidUnitId:
+          type: string
+          description: App Open ad unit ID for Android
+        appOpenIosUnitId:
+          type: string
+          description: App Open ad unit ID for iOS
+        interstitialFrequency:
+          type: integer
+          description: Show interstitial after every N trigger actions
+        interstitialCooldownSeconds:
+          type: integer
+          description: Minimum seconds between two consecutive interstitial ads
+        nativeAdInterval:
+          type: integer
+          description: Insert a native ad card after every N reels in the feed
+
+    AdMobConfigUpdate:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        androidAppId:
+          type: string
+        iosAppId:
+          type: string
+        interstitialAndroidUnitId:
+          type: string
+        interstitialIosUnitId:
+          type: string
+        nativeAndroidUnitId:
+          type: string
+        nativeIosUnitId:
+          type: string
+        appOpenAndroidUnitId:
+          type: string
+        appOpenIosUnitId:
+          type: string
+        interstitialFrequency:
+          type: integer
+          minimum: 1
+        interstitialCooldownSeconds:
+          type: integer
+          minimum: 0
+        nativeAdInterval:
+          type: integer
+          minimum: 1
 

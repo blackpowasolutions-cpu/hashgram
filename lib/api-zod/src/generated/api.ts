@@ -652,6 +652,65 @@ export const ApplyReferralCodeResponse = zod.object({
 })
 
 
+/**
+ * @summary Get AdMob configuration
+ */
+export const GetAdsConfigResponse = zod.object({
+  "enabled": zod.boolean().describe('Whether ads are enabled globally'),
+  "androidAppId": zod.string().describe('AdMob Android App ID (ca-app-pub-XXXXXXXXXXXXXXXX~XXXXXXXXXX)'),
+  "iosAppId": zod.string().describe('AdMob iOS App ID (ca-app-pub-XXXXXXXXXXXXXXXX~XXXXXXXXXX)'),
+  "interstitialAndroidUnitId": zod.string().describe('Interstitial ad unit ID for Android'),
+  "interstitialIosUnitId": zod.string().describe('Interstitial ad unit ID for iOS'),
+  "nativeAndroidUnitId": zod.string().describe('Native ad unit ID for Android (shown in reels feed)'),
+  "nativeIosUnitId": zod.string().describe('Native ad unit ID for iOS (shown in reels feed)'),
+  "appOpenAndroidUnitId": zod.string().describe('App Open ad unit ID for Android'),
+  "appOpenIosUnitId": zod.string().describe('App Open ad unit ID for iOS'),
+  "interstitialFrequency": zod.number().describe('Show interstitial after every N trigger actions'),
+  "interstitialCooldownSeconds": zod.number().describe('Minimum seconds between two consecutive interstitial ads'),
+  "nativeAdInterval": zod.number().describe('Insert a native ad card after every N reels in the feed')
+})
+
+
+/**
+ * @summary Update AdMob configuration (admin only)
+ */
+
+export const updateAdsConfigBodyInterstitialCooldownSecondsMin = 0;
+
+
+
+
+export const UpdateAdsConfigBody = zod.object({
+  "enabled": zod.boolean().optional(),
+  "androidAppId": zod.string().optional(),
+  "iosAppId": zod.string().optional(),
+  "interstitialAndroidUnitId": zod.string().optional(),
+  "interstitialIosUnitId": zod.string().optional(),
+  "nativeAndroidUnitId": zod.string().optional(),
+  "nativeIosUnitId": zod.string().optional(),
+  "appOpenAndroidUnitId": zod.string().optional(),
+  "appOpenIosUnitId": zod.string().optional(),
+  "interstitialFrequency": zod.number().min(1).optional(),
+  "interstitialCooldownSeconds": zod.number().min(updateAdsConfigBodyInterstitialCooldownSecondsMin).optional(),
+  "nativeAdInterval": zod.number().min(1).optional()
+})
+
+export const UpdateAdsConfigResponse = zod.object({
+  "enabled": zod.boolean().describe('Whether ads are enabled globally'),
+  "androidAppId": zod.string().describe('AdMob Android App ID (ca-app-pub-XXXXXXXXXXXXXXXX~XXXXXXXXXX)'),
+  "iosAppId": zod.string().describe('AdMob iOS App ID (ca-app-pub-XXXXXXXXXXXXXXXX~XXXXXXXXXX)'),
+  "interstitialAndroidUnitId": zod.string().describe('Interstitial ad unit ID for Android'),
+  "interstitialIosUnitId": zod.string().describe('Interstitial ad unit ID for iOS'),
+  "nativeAndroidUnitId": zod.string().describe('Native ad unit ID for Android (shown in reels feed)'),
+  "nativeIosUnitId": zod.string().describe('Native ad unit ID for iOS (shown in reels feed)'),
+  "appOpenAndroidUnitId": zod.string().describe('App Open ad unit ID for Android'),
+  "appOpenIosUnitId": zod.string().describe('App Open ad unit ID for iOS'),
+  "interstitialFrequency": zod.number().describe('Show interstitial after every N trigger actions'),
+  "interstitialCooldownSeconds": zod.number().describe('Minimum seconds between two consecutive interstitial ads'),
+  "nativeAdInterval": zod.number().describe('Insert a native ad card after every N reels in the feed')
+})
+
+
 export const getLeaderboardQueryPeriodDefault = `alltime`;
 export const getLeaderboardQueryLimitDefault = 10;
 

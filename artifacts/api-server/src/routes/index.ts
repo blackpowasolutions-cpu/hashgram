@@ -10,6 +10,7 @@ import messagesRouter from "./messages";
 import adminRouter from "./admin";
 import storageRouter from "./storage";
 import referralsRouter from "./referrals";
+import adsRouter from "./ads";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(messagesRouter);
 router.use(adminRouter);
 router.use(storageRouter);
 router.use(referralsRouter);
+router.use(adsRouter);
 
 export default router;

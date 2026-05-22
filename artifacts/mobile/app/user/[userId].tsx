@@ -28,6 +28,7 @@ import {
   type AppUser,
 } from "@/context/SocialContext";
 import { useColors } from "@/hooks/useColors";
+import { useAdMob } from "@/context/AdMobContext";
 
 const { width } = Dimensions.get("window");
 const GAP = 1.5;
@@ -76,6 +77,7 @@ function UserListModal({
 }) {
   const { isFollowing, toggleFollow } = useSocial();
   const { user: authUser } = useAuth();
+  const { showInterstitial } = useAdMob();
   const insets = useSafeAreaInsets();
 
   const handleAvatarPress = (userId: string) => {
@@ -127,6 +129,7 @@ function UserListModal({
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                         toggleFollow(u.id);
+                        showInterstitial().catch(() => {});
                       }}
                       activeOpacity={0.75}
                       style={[
@@ -159,6 +162,7 @@ export default function UserProfileScreen() {
   const insets = useSafeAreaInsets();
   const { user: authUser, token } = useAuth();
   const { isFollowing, toggleFollow, getUser, getUserFollowers, getUserFollowing } = useSocial();
+  const { showInterstitial } = useAdMob();
 
   const [activeTab, setActiveTab] = useState<"reels" | "posts">("reels");
   const [showFollowers, setShowFollowers] = useState(false);
@@ -201,7 +205,8 @@ export default function UserProfileScreen() {
 
   useEffect(() => {
     fetchReels();
-  }, [fetchReels]);
+    showInterstitial().catch(() => {});
+  }, [fetchReels, showInterstitial]);
 
   if (!profileUser) {
     return (
@@ -312,6 +317,7 @@ export default function UserProfileScreen() {
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                   toggleFollow(userId ?? "");
+                  showInterstitial().catch(() => {});
                 }}
               >
                 <Text style={[styles.actionBtnText, { color: following ? colors.foreground : "#fff" }]}>

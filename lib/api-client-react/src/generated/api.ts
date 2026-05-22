@@ -20,6 +20,8 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AdMobConfig,
+  AdMobConfigUpdate,
   AdminStats,
   AdminUserItem,
   AdminUserList,
@@ -2819,6 +2821,154 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getApplyReferralCodeMutationOptions(options));
+    }
+
+export const getGetAdsConfigUrl = () => {
+
+
+
+
+  return `/api/ads/config`
+}
+
+/**
+ * @summary Get AdMob configuration
+ */
+export const getAdsConfig = async ( options?: RequestInit): Promise<AdMobConfig> => {
+
+  return customFetch<AdMobConfig>(getGetAdsConfigUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdsConfigQueryKey = () => {
+    return [
+    `/api/ads/config`
+    ] as const;
+    }
+
+
+export const getGetAdsConfigQueryOptions = <TData = Awaited<ReturnType<typeof getAdsConfig>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdsConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdsConfigQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdsConfig>>> = ({ signal }) => getAdsConfig({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdsConfig>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdsConfigQueryResult = NonNullable<Awaited<ReturnType<typeof getAdsConfig>>>
+export type GetAdsConfigQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get AdMob configuration
+ */
+
+export function useGetAdsConfig<TData = Awaited<ReturnType<typeof getAdsConfig>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdsConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdsConfigQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getUpdateAdsConfigUrl = () => {
+
+
+
+
+  return `/api/ads/config`
+}
+
+/**
+ * @summary Update AdMob configuration (admin only)
+ */
+export const updateAdsConfig = async (adMobConfigUpdate: AdMobConfigUpdate, options?: RequestInit): Promise<AdMobConfig> => {
+
+  return customFetch<AdMobConfig>(getUpdateAdsConfigUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      adMobConfigUpdate,)
+  }
+);}
+
+
+
+
+export const getUpdateAdsConfigMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdsConfig>>, TError,{data: BodyType<AdMobConfigUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAdsConfig>>, TError,{data: BodyType<AdMobConfigUpdate>}, TContext> => {
+
+const mutationKey = ['updateAdsConfig'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAdsConfig>>, {data: BodyType<AdMobConfigUpdate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateAdsConfig(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAdsConfigMutationResult = NonNullable<Awaited<ReturnType<typeof updateAdsConfig>>>
+    export type UpdateAdsConfigMutationBody = BodyType<AdMobConfigUpdate>
+    export type UpdateAdsConfigMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update AdMob configuration (admin only)
+ */
+export const useUpdateAdsConfig = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdsConfig>>, TError,{data: BodyType<AdMobConfigUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAdsConfig>>,
+        TError,
+        {data: BodyType<AdMobConfigUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateAdsConfigMutationOptions(options));
     }
 
 export const getGetLeaderboardUrl = (params?: GetLeaderboardParams,) => {

@@ -28,9 +28,11 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/context/AuthContext";
+import { useAdMob } from "@/context/AdMobContext";
 import { useMessages } from "@/context/MessagesContext";
 import { useRewardConfig } from "@/context/RewardConfigContext";
 import { useSocial } from "@/context/SocialContext";
+import NativeAdCard from "@/components/NativeAdCard";
 
 const { width, height } = Dimensions.get("window");
 
@@ -71,10 +73,19 @@ interface GiftItem {
   prize: { emoji: string; title: string; value: string; color: string };
 }
 
-type ListItem = Reel | GiftItem;
+interface AdItem {
+  type: "ad";
+  id: string;
+}
+
+type ListItem = Reel | GiftItem | AdItem;
 
 function isGift(item: ListItem): item is GiftItem {
   return (item as GiftItem).type === "gift";
+}
+
+function isAd(item: ListItem): item is AdItem {
+  return (item as AdItem).type === "ad";
 }
 
 // ─── Static data ──────────────────────────────────────────────────────────────
@@ -569,6 +580,7 @@ const csStyles = StyleSheet.create({
 function ReelItem({ item, bottomPad, isActive, onCommentCountChange }: { item: Reel; bottomPad: number; isActive: boolean; onCommentCountChange?: (reelId: string, delta: number) => void }) {
   const { user, token } = useAuth();
   const { isFollowing, toggleFollow } = useSocial();
+  const { showInterstitial } = useAdMob();
   const [liked, setLiked] = useState(item.likedByMe);
   const [likeCount, setLikeCount] = useState(item.likes);
   const [commentCount, setCommentCount] = useState(item.comments);
@@ -601,7 +613,8 @@ function ReelItem({ item, bottomPad, isActive, onCommentCountChange }: { item: R
   const handleCommented = useCallback(() => {
     setCommentCount((c) => c + 1);
     onCommentCountChange?.(item.id, 1);
-  }, [item.id, onCommentCountChange]);
+    showInterstitial().catch(() => {});
+  }, [item.id, onCommentCountChange, showInterstitial]);
 
   const sendLike = useCallback(
     async (shouldLike: boolean): Promise<boolean> => {
@@ -640,7 +653,8 @@ function ReelItem({ item, bottomPad, isActive, onCommentCountChange }: { item: R
   const handleLike = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     applyLike(!liked);
-  }, [applyLike, liked]);
+    showInterstitial().catch(() => {});
+  }, [applyLike, liked, showInterstitial]);
 
   const triggerDoubleTapLike = useCallback(() => {
     if (!liked) {
@@ -680,7 +694,8 @@ function ReelItem({ item, bottomPad, isActive, onCommentCountChange }: { item: R
   const handleFollow = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     toggleFollow(item.userId);
-  }, [item.userId, toggleFollow]);
+    showInterstitial().catch(() => {});
+  }, [item.userId, toggleFollow, showInterstitial]);
 
   return (
     <Pressable style={[styles.reel, { height }]} onPress={handleTap}>
@@ -819,6 +834,7 @@ export default function FeedScreen() {
   const totalUnread = conversations.reduce((s, c) => s + c.unreadCount, 0);
   const { isFollowing } = useSocial();
   const { reelsScrollInterval } = useRewardConfig();
+  const { showInterstitial: showAd, nativeAdUnitId, adConfig } = useAdMob();
   const [feedTab, setFeedTab] = useState<"forYou" | "following">("forYou");
   const [reels, setReels] = useState<Reel[]>(REELS);
   const [refreshing, setRefreshing] = useState(false);
@@ -912,9 +928,11 @@ export default function FeedScreen() {
     return reels;
   }, [reels, feedTab, isFollowing]);
 
+  const nativeAdInterval = adConfig?.nativeAdInterval ?? 5;
   const listData = useMemo<ListItem[]>(() => {
     const interval = Math.max(1, reelsScrollInterval);
     const result: ListItem[] = [];
+    let adCount = 0;
     visibleReels.forEach((reel, i) => {
       result.push(reel);
       if ((i + 1) % interval === 0) {
@@ -922,13 +940,17 @@ export default function FeedScreen() {
         const prize = GIFT_PRIZES[prizeIndex];
         if (prize) result.push({ type: "gift", id: `gift_${i}`, prize });
       }
+      const adjInterval = Math.max(1, nativeAdInterval);
+      if (nativeAdUnitId && adConfig?.enabled && (i + 1) % adjInterval === 0) {
+        result.push({ type: "ad", id: `ad_${adCount++}` });
+      }
     });
     return result;
-  }, [visibleReels, reelsScrollInterval]);
+  }, [visibleReels, reelsScrollInterval, nativeAdUnitId, adConfig, nativeAdInterval]);
 
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      const first = viewableItems.find((v) => v.isViewable && !isGift(v.item));
+      const first = viewableItems.find((v) => v.isViewable && !isGift(v.item) && !isAd(v.item));
       if (first) setActiveId(first.item.id);
     },
     [setActiveId]
@@ -1040,6 +1062,7 @@ export default function FeedScreen() {
     setUploadToast(true);
     setTimeout(() => setUploadToast(false), 2500);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    showAd().catch(() => {});
 
     if (token) {
       try {
@@ -1115,9 +1138,11 @@ export default function FeedScreen() {
         data={listData}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) =>
-          isGift(item)
-            ? <GiftSurpriseCard item={item} bottomPad={bottomPad} />
-            : <ReelItem item={item} bottomPad={bottomPad} isActive={item.id === activeId} onCommentCountChange={handleCommentCountChange} />
+          isAd(item)
+            ? <NativeAdCard unitId={nativeAdUnitId ?? ""} bottomPad={bottomPad} />
+            : isGift(item)
+              ? <GiftSurpriseCard item={item} bottomPad={bottomPad} />
+              : <ReelItem item={item} bottomPad={bottomPad} isActive={item.id === activeId} onCommentCountChange={handleCommentCountChange} />
         }
         pagingEnabled
         snapToInterval={height}

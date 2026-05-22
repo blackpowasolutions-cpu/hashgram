@@ -17,6 +17,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/context/AuthContext";
 import { MessagesProvider } from "@/context/MessagesContext";
 import { RewardConfigProvider } from "@/context/RewardConfigContext";
+import { AdMobProvider } from "@/context/AdMobContext";
 import { SocialProvider } from "@/context/SocialContext";
 import { StoreProvider } from "@/context/StoreContext";
 
@@ -60,15 +61,17 @@ export default function RootLayout() {
           <GestureHandlerRootView style={{ flex: 1 }}>
             <KeyboardProvider>
               <RewardConfigProvider>
-                <AuthProvider>
-                  <SocialProvider>
-                    <StoreProvider>
-                      <MessagesProvider>
-                        <RootLayoutNav />
-                      </MessagesProvider>
-                    </StoreProvider>
-                  </SocialProvider>
-                </AuthProvider>
+                <AdMobProvider>
+                  <AuthProvider>
+                    <SocialProvider>
+                      <StoreProvider>
+                        <MessagesProvider>
+                          <RootLayoutNav />
+                        </MessagesProvider>
+                      </StoreProvider>
+                    </SocialProvider>
+                  </AuthProvider>
+                </AdMobProvider>
               </RewardConfigProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>

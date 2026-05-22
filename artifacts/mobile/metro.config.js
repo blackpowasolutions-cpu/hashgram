@@ -14,6 +14,7 @@ const existingBlockList = config.resolver.blockList
 config.resolver.blockList = [
   ...existingBlockList,
   /node_modules\/.*\/base64id_tmp_\d+.*/,
+  /node_modules\/.*\/react-native-google-mobile-ads_tmp_\d+.*/,
 ];
 
 module.exports = config;

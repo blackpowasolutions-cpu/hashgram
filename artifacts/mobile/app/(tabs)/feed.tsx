@@ -24,6 +24,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/context/AuthContext";
 import type { User } from "@/context/AuthContext";
+import { useAdMob } from "@/context/AdMobContext";
 import ScratchCard, { PRIZES, type GiftCardPrize } from "@/components/ScratchCard";
 import { useRewardConfig } from "@/context/RewardConfigContext";
 import { useColors } from "@/hooks/useColors";
@@ -686,6 +687,7 @@ function CreatePostModal({
 export default function NewsFeedScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { showInterstitial } = useAdMob();
   const { user, token } = useAuth();
 
   const [posts, setPosts] = useState<Post[]>(INITIAL_POSTS);
@@ -757,6 +759,7 @@ export default function NewsFeedScreen() {
         return updated;
       })
     );
+    showInterstitial().catch(() => {});
     if (!token) return;
     if (reaction) {
       fetch(`${API_BASE}/posts/${postId}/react`, {
@@ -809,6 +812,7 @@ export default function NewsFeedScreen() {
     };
     setPosts((prev) => [newPost, ...prev]);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    showInterstitial().catch(() => {});
 
     if (token) {
       // Try to upload image to object storage for a persistent public URL

@@ -12,6 +12,7 @@ import StoreNewsfeed from "@/pages/store-newsfeed";
 import StoreScratch from "@/pages/store-scratch";
 import RewardSettings from "@/pages/reward-settings";
 import Leaderboard from "@/pages/leaderboard";
+import AdsSettings from "@/pages/ads";
 import { AuthProvider } from "@/contexts/AuthContext";
 import "@/lib/fetch-interceptor";
 
@@ -39,6 +40,7 @@ function Router() {
         <Redirect to="/store/reels" />
       </Route>
       <Route path="/rewards/settings" component={RewardSettings} />
+      <Route path="/ads/settings" component={AdsSettings} />
       <Route path="/leaderboard" component={Leaderboard} />
       <Route component={NotFound} />
     </Switch>

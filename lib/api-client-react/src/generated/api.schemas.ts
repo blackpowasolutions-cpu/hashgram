@@ -480,6 +480,51 @@ export interface RewardConfigUpdate {
   referralEngagementLevel5Points?: number;
 }
 
+export interface AdMobConfig {
+  /** Whether ads are enabled globally */
+  enabled: boolean;
+  /** AdMob Android App ID (ca-app-pub-XXXXXXXXXXXXXXXX~XXXXXXXXXX) */
+  androidAppId: string;
+  /** AdMob iOS App ID (ca-app-pub-XXXXXXXXXXXXXXXX~XXXXXXXXXX) */
+  iosAppId: string;
+  /** Interstitial ad unit ID for Android */
+  interstitialAndroidUnitId: string;
+  /** Interstitial ad unit ID for iOS */
+  interstitialIosUnitId: string;
+  /** Native ad unit ID for Android (shown in reels feed) */
+  nativeAndroidUnitId: string;
+  /** Native ad unit ID for iOS (shown in reels feed) */
+  nativeIosUnitId: string;
+  /** App Open ad unit ID for Android */
+  appOpenAndroidUnitId: string;
+  /** App Open ad unit ID for iOS */
+  appOpenIosUnitId: string;
+  /** Show interstitial after every N trigger actions */
+  interstitialFrequency: number;
+  /** Minimum seconds between two consecutive interstitial ads */
+  interstitialCooldownSeconds: number;
+  /** Insert a native ad card after every N reels in the feed */
+  nativeAdInterval: number;
+}
+
+export interface AdMobConfigUpdate {
+  enabled?: boolean;
+  androidAppId?: string;
+  iosAppId?: string;
+  interstitialAndroidUnitId?: string;
+  interstitialIosUnitId?: string;
+  nativeAndroidUnitId?: string;
+  nativeIosUnitId?: string;
+  appOpenAndroidUnitId?: string;
+  appOpenIosUnitId?: string;
+  /** @minimum 1 */
+  interstitialFrequency?: number;
+  /** @minimum 0 */
+  interstitialCooldownSeconds?: number;
+  /** @minimum 1 */
+  nativeAdInterval?: number;
+}
+
 export type ListReelsParams = {
 page?: number;
 limit?: number;

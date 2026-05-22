@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/useAuth";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Users, Video, ShoppingBag, Trophy, LogOut, Newspaper, Ticket, Settings2, ChevronDown, ChevronRight } from "lucide-react";
+import { LayoutDashboard, Users, Video, ShoppingBag, Trophy, LogOut, Newspaper, Ticket, Settings2, ChevronDown, ChevronRight, Tv2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -19,12 +19,18 @@ const REWARDS_ITEMS = [
   { name: "Reward Settings", href: "/rewards/settings", icon: Settings2 },
 ];
 
+const ADS_ITEMS = [
+  { name: "Ad Settings", href: "/ads/settings", icon: Tv2 },
+];
+
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, logout, isAuthenticated, isLoading } = useAuth();
   const [location, setLocation] = useLocation();
 
   const rewardsActive = location.startsWith("/store") || location.startsWith("/rewards");
   const [rewardsOpen, setRewardsOpen] = useState(rewardsActive);
+  const adsActive = location.startsWith("/ads");
+  const [adsOpen, setAdsOpen] = useState(adsActive);
 
   React.useEffect(() => {
     if (!isLoading && !isAuthenticated && location !== "/login") {
@@ -98,6 +104,50 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             {rewardsOpen && (
               <div className="mt-1 ml-4 space-y-1">
                 {REWARDS_ITEMS.map((item) => {
+                  const isActive = location === item.href || location.startsWith(item.href);
+                  return (
+                    <Link key={item.href} href={item.href}>
+                      <Button
+                        variant={isActive ? "secondary" : "ghost"}
+                        className={cn(
+                          "w-full justify-start gap-3 h-9 px-3 text-sm",
+                          isActive
+                            ? "bg-secondary text-secondary-foreground"
+                            : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                        )}
+                        data-testid={`nav-${item.name.toLowerCase().replace(/\s+/g, "-")}`}
+                      >
+                        <item.icon className="h-3.5 w-3.5" />
+                        {item.name}
+                      </Button>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Ads collapsible group */}
+          <div>
+            <Button
+              variant={adsActive ? "secondary" : "ghost"}
+              className={cn(
+                "w-full justify-start gap-3 h-11 px-4 text-sm font-medium",
+                adsActive
+                  ? "bg-secondary text-secondary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+              )}
+              onClick={() => setAdsOpen((o) => !o)}
+              data-testid="nav-ads"
+            >
+              <Tv2 className="h-4 w-4" />
+              <span className="flex-1 text-left">Ads</span>
+              {adsOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            </Button>
+
+            {adsOpen && (
+              <div className="mt-1 ml-4 space-y-1">
+                {ADS_ITEMS.map((item) => {
                   const isActive = location === item.href || location.startsWith(item.href);
                   return (
                     <Link key={item.href} href={item.href}>
