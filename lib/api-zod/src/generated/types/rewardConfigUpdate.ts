@@ -17,4 +17,20 @@ export interface RewardConfigUpdate {
   inactivityPenaltyPoints?: number;
   /** @minimum 1 */
   inactivityPenaltyHours?: number;
+  /** @minimum 0 */
+  referralRetention3dPoints?: number;
+  /** @minimum 0 */
+  referralRetention7dPoints?: number;
+  /** @minimum 0 */
+  referralRetention14dPoints?: number;
+  /** @minimum 1 */
+  referralEngagementLikesThreshold?: number;
+  /** @minimum 0 */
+  referralEngagementLikesPoints?: number;
+  /** @minimum 1 */
+  referralEngagementPostsThreshold?: number;
+  /** @minimum 0 */
+  referralEngagementPostsPoints?: number;
+  /** @minimum 0 */
+  referralEngagementLevel5Points?: number;
 }

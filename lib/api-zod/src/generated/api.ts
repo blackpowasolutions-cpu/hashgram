@@ -551,7 +551,15 @@ export const GetRewardConfigResponse = zod.object({
   "postLikesThreshold": zod.number().describe('Number of post likes needed before the newsfeed scratch card unlocks'),
   "reelPlaysThreshold": zod.number().describe('Number of reel plays needed before a profile scratch card unlocks'),
   "inactivityPenaltyPoints": zod.number().describe('Points deducted per inactivity window'),
-  "inactivityPenaltyHours": zod.number().describe('Hours of inactivity before one penalty window triggers')
+  "inactivityPenaltyHours": zod.number().describe('Hours of inactivity before one penalty window triggers'),
+  "referralRetention3dPoints": zod.number().describe('Points awarded to referrer when referred user is still active after 3 days'),
+  "referralRetention7dPoints": zod.number().describe('Points awarded to referrer when referred user is still active after 7 days'),
+  "referralRetention14dPoints": zod.number().describe('Points awarded to referrer when referred user is still active after 14 days'),
+  "referralEngagementLikesThreshold": zod.number().describe('Number of likes the referred user must receive to trigger the likes milestone'),
+  "referralEngagementLikesPoints": zod.number().describe('Points awarded to referrer when referred user hits the likes threshold'),
+  "referralEngagementPostsThreshold": zod.number().describe('Number of posts the referred user must publish to trigger the posts milestone'),
+  "referralEngagementPostsPoints": zod.number().describe('Points awarded to referrer when referred user hits the posts threshold'),
+  "referralEngagementLevel5Points": zod.number().describe('Points awarded to referrer when referred user reaches Level 5 (12 000+ pts). Set to 0 to disable.')
 })
 
 
@@ -561,6 +569,20 @@ export const GetRewardConfigResponse = zod.object({
 export const updateRewardConfigBodyInactivityPenaltyPointsMin = 0;
 
 
+export const updateRewardConfigBodyReferralRetention3dPointsMin = 0;
+
+export const updateRewardConfigBodyReferralRetention7dPointsMin = 0;
+
+export const updateRewardConfigBodyReferralRetention14dPointsMin = 0;
+
+
+export const updateRewardConfigBodyReferralEngagementLikesPointsMin = 0;
+
+
+export const updateRewardConfigBodyReferralEngagementPostsPointsMin = 0;
+
+export const updateRewardConfigBodyReferralEngagementLevel5PointsMin = 0;
+
 
 
 export const UpdateRewardConfigBody = zod.object({
@@ -568,7 +590,15 @@ export const UpdateRewardConfigBody = zod.object({
   "postLikesThreshold": zod.number().min(1).optional(),
   "reelPlaysThreshold": zod.number().min(1).optional(),
   "inactivityPenaltyPoints": zod.number().min(updateRewardConfigBodyInactivityPenaltyPointsMin).optional(),
-  "inactivityPenaltyHours": zod.number().min(1).optional()
+  "inactivityPenaltyHours": zod.number().min(1).optional(),
+  "referralRetention3dPoints": zod.number().min(updateRewardConfigBodyReferralRetention3dPointsMin).optional(),
+  "referralRetention7dPoints": zod.number().min(updateRewardConfigBodyReferralRetention7dPointsMin).optional(),
+  "referralRetention14dPoints": zod.number().min(updateRewardConfigBodyReferralRetention14dPointsMin).optional(),
+  "referralEngagementLikesThreshold": zod.number().min(1).optional(),
+  "referralEngagementLikesPoints": zod.number().min(updateRewardConfigBodyReferralEngagementLikesPointsMin).optional(),
+  "referralEngagementPostsThreshold": zod.number().min(1).optional(),
+  "referralEngagementPostsPoints": zod.number().min(updateRewardConfigBodyReferralEngagementPostsPointsMin).optional(),
+  "referralEngagementLevel5Points": zod.number().min(updateRewardConfigBodyReferralEngagementLevel5PointsMin).optional()
 })
 
 export const UpdateRewardConfigResponse = zod.object({
@@ -576,7 +606,49 @@ export const UpdateRewardConfigResponse = zod.object({
   "postLikesThreshold": zod.number().describe('Number of post likes needed before the newsfeed scratch card unlocks'),
   "reelPlaysThreshold": zod.number().describe('Number of reel plays needed before a profile scratch card unlocks'),
   "inactivityPenaltyPoints": zod.number().describe('Points deducted per inactivity window'),
-  "inactivityPenaltyHours": zod.number().describe('Hours of inactivity before one penalty window triggers')
+  "inactivityPenaltyHours": zod.number().describe('Hours of inactivity before one penalty window triggers'),
+  "referralRetention3dPoints": zod.number().describe('Points awarded to referrer when referred user is still active after 3 days'),
+  "referralRetention7dPoints": zod.number().describe('Points awarded to referrer when referred user is still active after 7 days'),
+  "referralRetention14dPoints": zod.number().describe('Points awarded to referrer when referred user is still active after 14 days'),
+  "referralEngagementLikesThreshold": zod.number().describe('Number of likes the referred user must receive to trigger the likes milestone'),
+  "referralEngagementLikesPoints": zod.number().describe('Points awarded to referrer when referred user hits the likes threshold'),
+  "referralEngagementPostsThreshold": zod.number().describe('Number of posts the referred user must publish to trigger the posts milestone'),
+  "referralEngagementPostsPoints": zod.number().describe('Points awarded to referrer when referred user hits the posts threshold'),
+  "referralEngagementLevel5Points": zod.number().describe('Points awarded to referrer when referred user reaches Level 5 (12 000+ pts). Set to 0 to disable.')
+})
+
+
+export const GetMyReferralCodeResponse = zod.object({
+  "code": zod.string()
+})
+
+
+export const GetReferralStatsResponse = zod.object({
+  "code": zod.string(),
+  "totalReferred": zod.number(),
+  "totalPointsEarned": zod.number(),
+  "referrals": zod.array(zod.object({
+  "id": zod.number(),
+  "referredUserId": zod.number(),
+  "referredDisplayName": zod.string().optional(),
+  "referredAvatarUrl": zod.string().optional(),
+  "referredAt": zod.coerce.date(),
+  "milestonesAchieved": zod.array(zod.object({
+  "type": zod.string(),
+  "pointsAwarded": zod.number(),
+  "awardedAt": zod.coerce.date()
+})),
+  "totalPointsEarned": zod.number()
+}))
+})
+
+
+export const ApplyReferralCodeBody = zod.object({
+  "code": zod.string()
+})
+
+export const ApplyReferralCodeResponse = zod.object({
+  "success": zod.boolean()
 })
 
 

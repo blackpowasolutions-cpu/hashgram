@@ -9,6 +9,7 @@ import leaderboardRouter from "./leaderboard";
 import messagesRouter from "./messages";
 import adminRouter from "./admin";
 import storageRouter from "./storage";
+import referralsRouter from "./referrals";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(leaderboardRouter);
 router.use(messagesRouter);
 router.use(adminRouter);
 router.use(storageRouter);
+router.use(referralsRouter);
 
 export default router;

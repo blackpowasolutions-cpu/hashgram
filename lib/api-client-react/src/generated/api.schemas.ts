@@ -391,6 +391,37 @@ export interface UploadResponse {
   objectPath: string;
 }
 
+export interface ReferralCode {
+  code: string;
+}
+
+export interface ReferralMilestoneItem {
+  type: string;
+  pointsAwarded: number;
+  awardedAt: string;
+}
+
+export interface ReferralEntry {
+  id: number;
+  referredUserId: number;
+  referredDisplayName?: string;
+  referredAvatarUrl?: string;
+  referredAt: string;
+  milestonesAchieved: ReferralMilestoneItem[];
+  totalPointsEarned: number;
+}
+
+export interface ReferralStats {
+  code: string;
+  totalReferred: number;
+  totalPointsEarned: number;
+  referrals: ReferralEntry[];
+}
+
+export interface ApplyReferralBody {
+  code: string;
+}
+
 export interface RewardConfig {
   /** Gift card injected into reel feed after every N reels scrolled */
   reelsScrollInterval: number;
@@ -402,6 +433,22 @@ export interface RewardConfig {
   inactivityPenaltyPoints: number;
   /** Hours of inactivity before one penalty window triggers */
   inactivityPenaltyHours: number;
+  /** Points awarded to referrer when referred user is still active after 3 days */
+  referralRetention3dPoints: number;
+  /** Points awarded to referrer when referred user is still active after 7 days */
+  referralRetention7dPoints: number;
+  /** Points awarded to referrer when referred user is still active after 14 days */
+  referralRetention14dPoints: number;
+  /** Number of likes the referred user must receive to trigger the likes milestone */
+  referralEngagementLikesThreshold: number;
+  /** Points awarded to referrer when referred user hits the likes threshold */
+  referralEngagementLikesPoints: number;
+  /** Number of posts the referred user must publish to trigger the posts milestone */
+  referralEngagementPostsThreshold: number;
+  /** Points awarded to referrer when referred user hits the posts threshold */
+  referralEngagementPostsPoints: number;
+  /** Points awarded to referrer when referred user reaches Level 5 (12 000+ pts). Set to 0 to disable. */
+  referralEngagementLevel5Points: number;
 }
 
 export interface RewardConfigUpdate {
@@ -415,6 +462,22 @@ export interface RewardConfigUpdate {
   inactivityPenaltyPoints?: number;
   /** @minimum 1 */
   inactivityPenaltyHours?: number;
+  /** @minimum 0 */
+  referralRetention3dPoints?: number;
+  /** @minimum 0 */
+  referralRetention7dPoints?: number;
+  /** @minimum 0 */
+  referralRetention14dPoints?: number;
+  /** @minimum 1 */
+  referralEngagementLikesThreshold?: number;
+  /** @minimum 0 */
+  referralEngagementLikesPoints?: number;
+  /** @minimum 1 */
+  referralEngagementPostsThreshold?: number;
+  /** @minimum 0 */
+  referralEngagementPostsPoints?: number;
+  /** @minimum 0 */
+  referralEngagementLevel5Points?: number;
 }
 
 export type ListReelsParams = {
@@ -448,6 +511,10 @@ export const ListGiftCardsType = {
   newsfeed: 'newsfeed',
   scratch: 'scratch',
 } as const;
+
+export type ApplyReferralCode200 = {
+  success: boolean;
+};
 
 export type GetLeaderboardParams = {
 period?: GetLeaderboardPeriod;

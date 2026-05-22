@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Settings2, RefreshCw } from "lucide-react";
+import { Settings2, RefreshCw, Users } from "lucide-react";
 
 type ConfigForm = {
   reelsScrollInterval: number;
@@ -19,6 +19,14 @@ type ConfigForm = {
   reelPlaysThreshold: number;
   inactivityPenaltyPoints: number;
   inactivityPenaltyHours: number;
+  referralRetention3dPoints: number;
+  referralRetention7dPoints: number;
+  referralRetention14dPoints: number;
+  referralEngagementLikesThreshold: number;
+  referralEngagementLikesPoints: number;
+  referralEngagementPostsThreshold: number;
+  referralEngagementPostsPoints: number;
+  referralEngagementLevel5Points: number;
 };
 
 const DEFAULTS: ConfigForm = {
@@ -27,6 +35,14 @@ const DEFAULTS: ConfigForm = {
   reelPlaysThreshold: 100,
   inactivityPenaltyPoints: 100,
   inactivityPenaltyHours: 6,
+  referralRetention3dPoints: 50,
+  referralRetention7dPoints: 100,
+  referralRetention14dPoints: 250,
+  referralEngagementLikesThreshold: 50,
+  referralEngagementLikesPoints: 100,
+  referralEngagementPostsThreshold: 5,
+  referralEngagementPostsPoints: 100,
+  referralEngagementLevel5Points: 500,
 };
 
 export default function RewardSettings() {
@@ -45,6 +61,14 @@ export default function RewardSettings() {
         reelPlaysThreshold: config.reelPlaysThreshold,
         inactivityPenaltyPoints: config.inactivityPenaltyPoints,
         inactivityPenaltyHours: config.inactivityPenaltyHours,
+        referralRetention3dPoints: config.referralRetention3dPoints,
+        referralRetention7dPoints: config.referralRetention7dPoints,
+        referralRetention14dPoints: config.referralRetention14dPoints,
+        referralEngagementLikesThreshold: config.referralEngagementLikesThreshold,
+        referralEngagementLikesPoints: config.referralEngagementLikesPoints,
+        referralEngagementPostsThreshold: config.referralEngagementPostsThreshold,
+        referralEngagementPostsPoints: config.referralEngagementPostsPoints,
+        referralEngagementLevel5Points: config.referralEngagementLevel5Points,
       });
     }
   }, [config]);
@@ -77,7 +101,15 @@ export default function RewardSettings() {
       form.postLikesThreshold !== config.postLikesThreshold ||
       form.reelPlaysThreshold !== config.reelPlaysThreshold ||
       form.inactivityPenaltyPoints !== config.inactivityPenaltyPoints ||
-      form.inactivityPenaltyHours !== config.inactivityPenaltyHours);
+      form.inactivityPenaltyHours !== config.inactivityPenaltyHours ||
+      form.referralRetention3dPoints !== config.referralRetention3dPoints ||
+      form.referralRetention7dPoints !== config.referralRetention7dPoints ||
+      form.referralRetention14dPoints !== config.referralRetention14dPoints ||
+      form.referralEngagementLikesThreshold !== config.referralEngagementLikesThreshold ||
+      form.referralEngagementLikesPoints !== config.referralEngagementLikesPoints ||
+      form.referralEngagementPostsThreshold !== config.referralEngagementPostsThreshold ||
+      form.referralEngagementPostsPoints !== config.referralEngagementPostsPoints ||
+      form.referralEngagementLevel5Points !== config.referralEngagementLevel5Points);
 
   return (
     <AdminLayout>
@@ -87,7 +119,7 @@ export default function RewardSettings() {
           <div>
             <h1 className="text-2xl font-bold">Reward Settings</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Configure reward thresholds and inactivity penalties for the mobile app.
+              Configure reward thresholds, inactivity penalties, and referral bonuses for the mobile app.
             </p>
           </div>
         </div>
@@ -222,6 +254,151 @@ export default function RewardSettings() {
               </CardContent>
             </Card>
 
+            {/* ── Referral Rewards ── */}
+            <Card className="border-border bg-card border-emerald-500/30">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Users className="h-4 w-4 text-emerald-500" />
+                  Referral Rewards — Retention
+                </CardTitle>
+                <CardDescription>
+                  Points awarded to the referrer only if the invited user stays active after N days. Set to 0 to disable a tier.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="ref3d">Active after 3 days</Label>
+                    <Input
+                      id="ref3d"
+                      type="number"
+                      min={0}
+                      value={form.referralRetention3dPoints}
+                      onChange={(e) => handleChange("referralRetention3dPoints", e.target.value, 0)}
+                      className="w-24"
+                    />
+                    <p className="text-xs text-muted-foreground">pts</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="ref7d">Active after 7 days</Label>
+                    <Input
+                      id="ref7d"
+                      type="number"
+                      min={0}
+                      value={form.referralRetention7dPoints}
+                      onChange={(e) => handleChange("referralRetention7dPoints", e.target.value, 0)}
+                      className="w-24"
+                    />
+                    <p className="text-xs text-muted-foreground">pts</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="ref14d">Active after 14 days</Label>
+                    <Input
+                      id="ref14d"
+                      type="number"
+                      min={0}
+                      value={form.referralRetention14dPoints}
+                      onChange={(e) => handleChange("referralRetention14dPoints", e.target.value, 0)}
+                      className="w-24"
+                    />
+                    <p className="text-xs text-muted-foreground">pts</p>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-3 bg-muted rounded px-3 py-2">
+                  Rewards are checked every time the referred user logs in and only paid once per tier.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border bg-card border-emerald-500/30">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Users className="h-4 w-4 text-emerald-500" />
+                  Referral Rewards — Engagement
+                </CardTitle>
+                <CardDescription>
+                  Points awarded to the referrer when the referred user proves genuine engagement. Set points to 0 to disable a milestone.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div>
+                  <p className="text-sm font-medium mb-3">Likes received on posts</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="likesThreshold">Likes threshold</Label>
+                      <Input
+                        id="likesThreshold"
+                        type="number"
+                        min={1}
+                        value={form.referralEngagementLikesThreshold}
+                        onChange={(e) => handleChange("referralEngagementLikesThreshold", e.target.value)}
+                        className="w-28"
+                      />
+                      <p className="text-xs text-muted-foreground">reactions needed</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="likesPoints">Referrer reward</Label>
+                      <Input
+                        id="likesPoints"
+                        type="number"
+                        min={0}
+                        value={form.referralEngagementLikesPoints}
+                        onChange={(e) => handleChange("referralEngagementLikesPoints", e.target.value, 0)}
+                        className="w-28"
+                      />
+                      <p className="text-xs text-muted-foreground">pts awarded</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium mb-3">Posts published</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="postsThreshold">Posts threshold</Label>
+                      <Input
+                        id="postsThreshold"
+                        type="number"
+                        min={1}
+                        value={form.referralEngagementPostsThreshold}
+                        onChange={(e) => handleChange("referralEngagementPostsThreshold", e.target.value)}
+                        className="w-28"
+                      />
+                      <p className="text-xs text-muted-foreground">posts needed</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="postsPoints">Referrer reward</Label>
+                      <Input
+                        id="postsPoints"
+                        type="number"
+                        min={0}
+                        value={form.referralEngagementPostsPoints}
+                        onChange={(e) => handleChange("referralEngagementPostsPoints", e.target.value, 0)}
+                        className="w-28"
+                      />
+                      <p className="text-xs text-muted-foreground">pts awarded</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium mb-3">Reaches Level 5 (12 000+ pts)</p>
+                  <div className="space-y-2">
+                    <Label htmlFor="level5Points">Referrer reward</Label>
+                    <Input
+                      id="level5Points"
+                      type="number"
+                      min={0}
+                      value={form.referralEngagementLevel5Points}
+                      onChange={(e) => handleChange("referralEngagementLevel5Points", e.target.value, 0)}
+                      className="w-28"
+                    />
+                    <p className="text-xs text-muted-foreground">pts awarded. Set to 0 to disable.</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             <div className="flex items-center gap-3 pt-1">
               <Button
                 onClick={handleSave}
@@ -240,6 +417,14 @@ export default function RewardSettings() {
                     reelPlaysThreshold: config.reelPlaysThreshold,
                     inactivityPenaltyPoints: config.inactivityPenaltyPoints,
                     inactivityPenaltyHours: config.inactivityPenaltyHours,
+                    referralRetention3dPoints: config.referralRetention3dPoints,
+                    referralRetention7dPoints: config.referralRetention7dPoints,
+                    referralRetention14dPoints: config.referralRetention14dPoints,
+                    referralEngagementLikesThreshold: config.referralEngagementLikesThreshold,
+                    referralEngagementLikesPoints: config.referralEngagementLikesPoints,
+                    referralEngagementPostsThreshold: config.referralEngagementPostsThreshold,
+                    referralEngagementPostsPoints: config.referralEngagementPostsPoints,
+                    referralEngagementLevel5Points: config.referralEngagementLevel5Points,
                   })}
                   className="text-muted-foreground"
                 >

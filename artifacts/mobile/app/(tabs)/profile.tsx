@@ -14,6 +14,7 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -387,6 +388,13 @@ export default function ProfileScreen() {
   const [showFollowers, setShowFollowers] = useState(false);
   const [showFollowing, setShowFollowing] = useState(false);
 
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+  const [referralTotalReferred, setReferralTotalReferred] = useState(0);
+  const [referralTotalPoints, setReferralTotalPoints] = useState(0);
+  const [referralEntries, setReferralEntries] = useState<any[]>([]);
+  const [referralExpanded, setReferralExpanded] = useState(false);
+  const [referralCopied, setReferralCopied] = useState(false);
+
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
   const bottomPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
 
@@ -419,6 +427,22 @@ export default function ProfileScreen() {
     } catch {}
   }, [user?.id, token]);
 
+  const fetchReferralStats = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE}/referrals/stats`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setReferralCode(data.code ?? null);
+        setReferralTotalReferred(data.totalReferred ?? 0);
+        setReferralTotalPoints(data.totalPointsEarned ?? 0);
+        setReferralEntries(data.referrals ?? []);
+      }
+    } catch {}
+  }, [token]);
+
   const fetchPosts = useCallback(async () => {
     if (!user?.id) return;
     try {
@@ -442,11 +466,30 @@ export default function ProfileScreen() {
     } catch {}
   }, [user?.id, token]);
 
+  const handleReferralShare = async () => {
+    if (!referralCode) return;
+    try {
+      await Share.share({
+        message: `Join me on Reels and earn bonus points! Use my referral code: ${referralCode}`,
+        title: "Join Reels with my code",
+      });
+    } catch {}
+  };
+
+  const handleReferralCopy = () => {
+    if (!referralCode) return;
+    if (Platform.OS === "web" && navigator?.clipboard) {
+      navigator.clipboard.writeText(referralCode).catch(() => {});
+    }
+    setReferralCopied(true);
+    setTimeout(() => setReferralCopied(false), 2000);
+  };
+
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([fetchReels(), fetchPosts()]);
+    await Promise.all([fetchReels(), fetchPosts(), fetchReferralStats()]);
     setRefreshing(false);
-  }, [fetchReels, fetchPosts]);
+  }, [fetchReels, fetchPosts, fetchReferralStats]);
 
   // Fetch on mount + whenever the tab regains focus, so view counts stay in sync with the reels feed.
   // useFocusEffect fires on first focus (mount) too, so a separate useEffect would double-fetch.
@@ -454,7 +497,8 @@ export default function ProfileScreen() {
     useCallback(() => {
       fetchReels();
       fetchPosts();
-    }, [fetchReels, fetchPosts])
+      fetchReferralStats();
+    }, [fetchReels, fetchPosts, fetchReferralStats])
   );
 
   const completedCount = reels.filter((r) => r.plays >= reelPlaysThreshold && !r.scratchUsed).length;
@@ -626,6 +670,137 @@ export default function ProfileScreen() {
             <Feather name="user-plus" size={16} color={colors.foreground} />
           </TouchableOpacity>
         </View>
+
+        {/* Referral Card */}
+        {referralCode && (
+          <View style={[styles.referralCard, { backgroundColor: colors.card, borderColor: "#22c55e33" }]}>
+            <View style={styles.referralHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.referralTitle, { color: colors.foreground }]}>Invite Friends, Earn Points</Text>
+                <Text style={[styles.referralSub, { color: colors.mutedForeground }]}>
+                  Share your code — earn points when your friends stay active and engage.
+                </Text>
+              </View>
+              <Text style={{ fontSize: 28 }}>🎁</Text>
+            </View>
+
+            {/* Code display */}
+            <View style={[styles.referralCodeRow, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+              <Text style={[styles.referralCodeText, { color: colors.foreground }]}>{referralCode}</Text>
+              <View style={{ flexDirection: "row", gap: 6 }}>
+                <TouchableOpacity
+                  style={[styles.referralBtn, { backgroundColor: referralCopied ? "#22c55e" : colors.border }]}
+                  activeOpacity={0.75}
+                  onPress={handleReferralCopy}
+                >
+                  <Feather name={referralCopied ? "check" : "copy"} size={14} color={referralCopied ? "#fff" : colors.foreground} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.referralBtn, { backgroundColor: "#FE2C55" }]}
+                  activeOpacity={0.75}
+                  onPress={handleReferralShare}
+                >
+                  <Feather name="share-2" size={14} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Stats row */}
+            <View style={styles.referralStats}>
+              <View style={styles.referralStat}>
+                <Text style={[styles.referralStatNum, { color: colors.foreground }]}>{referralTotalReferred}</Text>
+                <Text style={[styles.referralStatLabel, { color: colors.mutedForeground }]}>Referred</Text>
+              </View>
+              <View style={[styles.referralStatDivider, { backgroundColor: colors.border }]} />
+              <View style={styles.referralStat}>
+                <Text style={[styles.referralStatNum, { color: "#22c55e" }]}>+{referralTotalPoints}</Text>
+                <Text style={[styles.referralStatLabel, { color: colors.mutedForeground }]}>pts earned</Text>
+              </View>
+            </View>
+
+            {/* Milestone breakdown — toggle */}
+            {referralEntries.length > 0 && (
+              <>
+                <TouchableOpacity
+                  style={styles.referralToggle}
+                  activeOpacity={0.7}
+                  onPress={() => setReferralExpanded((v) => !v)}
+                >
+                  <Text style={[styles.referralToggleText, { color: colors.mutedForeground }]}>
+                    {referralExpanded ? "Hide" : "Show"} referral details
+                  </Text>
+                  <Feather
+                    name={referralExpanded ? "chevron-up" : "chevron-down"}
+                    size={14}
+                    color={colors.mutedForeground}
+                  />
+                </TouchableOpacity>
+
+                {referralExpanded && referralEntries.map((entry: any) => (
+                  <View
+                    key={String(entry.id)}
+                    style={[styles.referralEntry, { borderTopColor: colors.border }]}
+                  >
+                    <View style={styles.referralEntryHeader}>
+                      <View style={[styles.referralAvatar, { backgroundColor: "#FE2C55" }]}>
+                        <Text style={styles.referralAvatarText}>
+                          {(entry.referredDisplayName ?? "U")[0].toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.referralEntryName, { color: colors.foreground }]}>
+                          {entry.referredDisplayName ?? "User"}
+                        </Text>
+                        <Text style={[styles.referralEntryDate, { color: colors.mutedForeground }]}>
+                          Joined {new Date(entry.referredAt).toLocaleDateString()}
+                        </Text>
+                      </View>
+                      <Text style={[styles.referralEntryPts, { color: "#22c55e" }]}>
+                        +{entry.totalPointsEarned} pts
+                      </Text>
+                    </View>
+
+                    {/* Milestone chips */}
+                    <View style={styles.referralMilestones}>
+                      {(["retention_3d", "retention_7d", "retention_14d", "engagement_likes", "engagement_posts", "engagement_level5"] as const).map((type) => {
+                        const achieved = entry.milestonesAchieved?.find((m: any) => m.type === type);
+                        const label: Record<string, string> = {
+                          retention_3d: "3d active",
+                          retention_7d: "7d active",
+                          retention_14d: "14d active",
+                          engagement_likes: "50 likes",
+                          engagement_posts: "5 posts",
+                          engagement_level5: "Level 5",
+                        };
+                        return (
+                          <View
+                            key={type}
+                            style={[
+                              styles.referralChip,
+                              achieved
+                                ? { backgroundColor: "#22c55e22", borderColor: "#22c55e55" }
+                                : { backgroundColor: colors.muted, borderColor: colors.border },
+                            ]}
+                          >
+                            <Text style={{ fontSize: 10 }}>{achieved ? "✓" : "○"}</Text>
+                            <Text style={[styles.referralChipText, { color: achieved ? "#22c55e" : colors.mutedForeground }]}>
+                              {label[type]}
+                            </Text>
+                            {achieved && (
+                              <Text style={[styles.referralChipPts, { color: "#22c55e" }]}>
+                                +{achieved.pointsAwarded}
+                              </Text>
+                            )}
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
+                ))}
+              </>
+            )}
+          </View>
+        )}
 
         {/* Tabs */}
         <View style={[styles.tabRow, { borderBottomColor: colors.border }]}>
@@ -970,4 +1145,43 @@ const styles = StyleSheet.create({
   userRowUsername: { fontSize: 12, fontFamily: "Inter_400Regular" },
   followBtn: { height: 32, paddingHorizontal: 16, borderRadius: 8, alignItems: "center", justifyContent: "center" },
   followBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  // Referral card
+  referralCard: {
+    marginHorizontal: 12, marginTop: 12, borderRadius: 16, borderWidth: 1, padding: 14,
+  },
+  referralHeader: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 12 },
+  referralTitle: { fontSize: 14, fontFamily: "Inter_700Bold", marginBottom: 2 },
+  referralSub: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 16 },
+  referralCodeRow: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 12,
+  },
+  referralCodeText: { fontSize: 20, fontFamily: "Inter_700Bold", letterSpacing: 3 },
+  referralBtn: {
+    width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center",
+  },
+  referralStats: { flexDirection: "row", alignItems: "center", marginBottom: 4 },
+  referralStat: { flex: 1, alignItems: "center", paddingVertical: 4 },
+  referralStatNum: { fontSize: 20, fontFamily: "Inter_700Bold" },
+  referralStatLabel: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  referralStatDivider: { width: 1, height: 32 },
+  referralToggle: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 4, paddingVertical: 8,
+  },
+  referralToggleText: { fontSize: 12, fontFamily: "Inter_500Medium" },
+  referralEntry: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10, marginTop: 6 },
+  referralEntryHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
+  referralAvatar: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+  referralAvatarText: { color: "#fff", fontSize: 13, fontFamily: "Inter_700Bold" },
+  referralEntryName: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  referralEntryDate: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  referralEntryPts: { fontSize: 13, fontFamily: "Inter_700Bold" },
+  referralMilestones: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  referralChip: {
+    flexDirection: "row", alignItems: "center", gap: 3,
+    borderRadius: 6, borderWidth: 1, paddingHorizontal: 6, paddingVertical: 3,
+  },
+  referralChipText: { fontSize: 10, fontFamily: "Inter_500Medium" },
+  referralChipPts: { fontSize: 10, fontFamily: "Inter_700Bold" },
 });

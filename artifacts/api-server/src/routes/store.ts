@@ -293,6 +293,14 @@ function serializeRewardConfig(c: typeof rewardConfigTable.$inferSelect) {
     reelPlaysThreshold: c.reelPlaysThreshold,
     inactivityPenaltyPoints: c.inactivityPenaltyPoints,
     inactivityPenaltyHours: c.inactivityPenaltyHours,
+    referralRetention3dPoints: c.referralRetention3dPoints,
+    referralRetention7dPoints: c.referralRetention7dPoints,
+    referralRetention14dPoints: c.referralRetention14dPoints,
+    referralEngagementLikesThreshold: c.referralEngagementLikesThreshold,
+    referralEngagementLikesPoints: c.referralEngagementLikesPoints,
+    referralEngagementPostsThreshold: c.referralEngagementPostsThreshold,
+    referralEngagementPostsPoints: c.referralEngagementPostsPoints,
+    referralEngagementLevel5Points: c.referralEngagementLevel5Points,
   };
 }
 
@@ -314,6 +322,14 @@ router.patch("/store/reward-config", requireAdmin, async (req: Request, res: Res
   if (body.data.reelPlaysThreshold !== undefined) updates.reelPlaysThreshold = body.data.reelPlaysThreshold;
   if (body.data.inactivityPenaltyPoints !== undefined) updates.inactivityPenaltyPoints = body.data.inactivityPenaltyPoints;
   if (body.data.inactivityPenaltyHours !== undefined) updates.inactivityPenaltyHours = body.data.inactivityPenaltyHours;
+  if (body.data.referralRetention3dPoints !== undefined) updates.referralRetention3dPoints = body.data.referralRetention3dPoints;
+  if (body.data.referralRetention7dPoints !== undefined) updates.referralRetention7dPoints = body.data.referralRetention7dPoints;
+  if (body.data.referralRetention14dPoints !== undefined) updates.referralRetention14dPoints = body.data.referralRetention14dPoints;
+  if (body.data.referralEngagementLikesThreshold !== undefined) updates.referralEngagementLikesThreshold = body.data.referralEngagementLikesThreshold;
+  if (body.data.referralEngagementLikesPoints !== undefined) updates.referralEngagementLikesPoints = body.data.referralEngagementLikesPoints;
+  if (body.data.referralEngagementPostsThreshold !== undefined) updates.referralEngagementPostsThreshold = body.data.referralEngagementPostsThreshold;
+  if (body.data.referralEngagementPostsPoints !== undefined) updates.referralEngagementPostsPoints = body.data.referralEngagementPostsPoints;
+  if (body.data.referralEngagementLevel5Points !== undefined) updates.referralEngagementLevel5Points = body.data.referralEngagementLevel5Points;
 
   const existing = await getOrCreateRewardConfig();
   const [updated] = await db

@@ -5,6 +5,7 @@ import { db, usersTable, pointsLogTable } from "@workspace/db";
 import { RegisterUserBody, LoginUserBody } from "@workspace/api-zod";
 import { signToken, getLevel } from "../lib/jwt";
 import { requireAuth } from "../middlewares/auth";
+import { checkAndAwardReferralMilestones } from "./referrals";
 
 const router: IRouter = Router();
 
@@ -104,6 +105,9 @@ router.post("/auth/login", async (req: Request, res: Response): Promise<void> =>
   } else {
     await db.update(usersTable).set({ lastActiveAt: now }).where(eq(usersTable.id, user.id));
   }
+
+  // Fire-and-forget: check if any referral milestones have been unlocked
+  checkAndAwardReferralMilestones(user.id).catch(() => {});
 
   res.json({
     token,

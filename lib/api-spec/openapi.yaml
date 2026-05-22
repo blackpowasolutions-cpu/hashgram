@@ -749,6 +749,61 @@ paths:
               schema:
                 $ref: "#/components/schemas/RewardConfig"
 
+  # ── Referrals ─────────────────────────────────────────────────────────────────
+  /referrals/my-code:
+    get:
+      operationId: getMyReferralCode
+      tags: [referrals]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReferralCode"
+
+  /referrals/stats:
+    get:
+      operationId: getReferralStats
+      tags: [referrals]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReferralStats"
+
+  /referrals/apply:
+    post:
+      operationId: applyReferralCode
+      tags: [referrals]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplyReferralBody"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success]
+                properties:
+                  success:
+                    type: boolean
+        "400":
+          description: Invalid or already-used code
+
   # ── Leaderboard ──────────────────────────────────────────────────────────────
   /leaderboard:
     get:
@@ -1678,9 +1733,86 @@ components:
           type: string
 
     # ── Reward Config ──────────────────────────────────────────────────────────
+    # ── Referral schemas ──────────────────────────────────────────────────────
+    ReferralCode:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+
+    ReferralMilestoneItem:
+      type: object
+      required: [type, pointsAwarded, awardedAt]
+      properties:
+        type:
+          type: string
+        pointsAwarded:
+          type: integer
+        awardedAt:
+          type: string
+          format: date-time
+
+    ReferralEntry:
+      type: object
+      required: [id, referredUserId, referredAt, milestonesAchieved, totalPointsEarned]
+      properties:
+        id:
+          type: integer
+        referredUserId:
+          type: integer
+        referredDisplayName:
+          type: string
+        referredAvatarUrl:
+          type: string
+        referredAt:
+          type: string
+          format: date-time
+        milestonesAchieved:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReferralMilestoneItem"
+        totalPointsEarned:
+          type: integer
+
+    ReferralStats:
+      type: object
+      required: [code, totalReferred, totalPointsEarned, referrals]
+      properties:
+        code:
+          type: string
+        totalReferred:
+          type: integer
+        totalPointsEarned:
+          type: integer
+        referrals:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReferralEntry"
+
+    ApplyReferralBody:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+
     RewardConfig:
       type: object
-      required: [reelsScrollInterval, postLikesThreshold, reelPlaysThreshold, inactivityPenaltyPoints, inactivityPenaltyHours]
+      required:
+        - reelsScrollInterval
+        - postLikesThreshold
+        - reelPlaysThreshold
+        - inactivityPenaltyPoints
+        - inactivityPenaltyHours
+        - referralRetention3dPoints
+        - referralRetention7dPoints
+        - referralRetention14dPoints
+        - referralEngagementLikesThreshold
+        - referralEngagementLikesPoints
+        - referralEngagementPostsThreshold
+        - referralEngagementPostsPoints
+        - referralEngagementLevel5Points
       properties:
         reelsScrollInterval:
           type: integer
@@ -1697,6 +1829,30 @@ components:
         inactivityPenaltyHours:
           type: integer
           description: Hours of inactivity before one penalty window triggers
+        referralRetention3dPoints:
+          type: integer
+          description: Points awarded to referrer when referred user is still active after 3 days
+        referralRetention7dPoints:
+          type: integer
+          description: Points awarded to referrer when referred user is still active after 7 days
+        referralRetention14dPoints:
+          type: integer
+          description: Points awarded to referrer when referred user is still active after 14 days
+        referralEngagementLikesThreshold:
+          type: integer
+          description: Number of likes the referred user must receive to trigger the likes milestone
+        referralEngagementLikesPoints:
+          type: integer
+          description: Points awarded to referrer when referred user hits the likes threshold
+        referralEngagementPostsThreshold:
+          type: integer
+          description: Number of posts the referred user must publish to trigger the posts milestone
+        referralEngagementPostsPoints:
+          type: integer
+          description: Points awarded to referrer when referred user hits the posts threshold
+        referralEngagementLevel5Points:
+          type: integer
+          description: Points awarded to referrer when referred user reaches Level 5 (12 000+ pts). Set to 0 to disable.
 
     RewardConfigUpdate:
       type: object
@@ -1716,4 +1872,28 @@ components:
         inactivityPenaltyHours:
           type: integer
           minimum: 1
+        referralRetention3dPoints:
+          type: integer
+          minimum: 0
+        referralRetention7dPoints:
+          type: integer
+          minimum: 0
+        referralRetention14dPoints:
+          type: integer
+          minimum: 0
+        referralEngagementLikesThreshold:
+          type: integer
+          minimum: 1
+        referralEngagementLikesPoints:
+          type: integer
+          minimum: 0
+        referralEngagementPostsThreshold:
+          type: integer
+          minimum: 1
+        referralEngagementPostsPoints:
+          type: integer
+          minimum: 0
+        referralEngagementLevel5Points:
+          type: integer
+          minimum: 0
 

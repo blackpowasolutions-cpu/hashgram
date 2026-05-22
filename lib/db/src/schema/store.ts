@@ -67,6 +67,14 @@ export const rewardConfigTable = pgTable("reward_config", {
   reelPlaysThreshold: integer("reel_plays_threshold").notNull().default(100),
   inactivityPenaltyPoints: integer("inactivity_penalty_points").notNull().default(100),
   inactivityPenaltyHours: integer("inactivity_penalty_hours").notNull().default(6),
+  referralRetention3dPoints: integer("referral_retention_3d_points").notNull().default(50),
+  referralRetention7dPoints: integer("referral_retention_7d_points").notNull().default(100),
+  referralRetention14dPoints: integer("referral_retention_14d_points").notNull().default(250),
+  referralEngagementLikesThreshold: integer("referral_engagement_likes_threshold").notNull().default(50),
+  referralEngagementLikesPoints: integer("referral_engagement_likes_points").notNull().default(100),
+  referralEngagementPostsThreshold: integer("referral_engagement_posts_threshold").notNull().default(5),
+  referralEngagementPostsPoints: integer("referral_engagement_posts_points").notNull().default(100),
+  referralEngagementLevel5Points: integer("referral_engagement_level5_points").notNull().default(500),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 

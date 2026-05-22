@@ -15,6 +15,7 @@ export const usersTable = pgTable("users", {
   isActive: boolean("is_active").notNull().default(true),
   isSuspended: boolean("is_suspended").notNull().default(false),
   points: integer("points").notNull().default(0),
+  referralCode: text("referral_code").unique(),
   lastActiveAt: timestamp("last_active_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

@@ -23,6 +23,8 @@ import type {
   AdminStats,
   AdminUserItem,
   AdminUserList,
+  ApplyReferralBody,
+  ApplyReferralCode200,
   AuthResponse,
   Conversation,
   ErrorResponse,
@@ -57,6 +59,8 @@ import type {
   ReelCommentList,
   ReelInput,
   ReelList,
+  ReferralCode,
+  ReferralStats,
   RegisterInput,
   RewardConfig,
   RewardConfigUpdate,
@@ -2608,6 +2612,213 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getUpdateRewardConfigMutationOptions(options));
+    }
+
+export const getGetMyReferralCodeUrl = () => {
+
+
+
+
+  return `/api/referrals/my-code`
+}
+
+export const getMyReferralCode = async ( options?: RequestInit): Promise<ReferralCode> => {
+
+  return customFetch<ReferralCode>(getGetMyReferralCodeUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMyReferralCodeQueryKey = () => {
+    return [
+    `/api/referrals/my-code`
+    ] as const;
+    }
+
+
+export const getGetMyReferralCodeQueryOptions = <TData = Awaited<ReturnType<typeof getMyReferralCode>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMyReferralCode>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMyReferralCodeQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMyReferralCode>>> = ({ signal }) => getMyReferralCode({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMyReferralCode>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMyReferralCodeQueryResult = NonNullable<Awaited<ReturnType<typeof getMyReferralCode>>>
+export type GetMyReferralCodeQueryError = ErrorType<unknown>
+
+
+
+export function useGetMyReferralCode<TData = Awaited<ReturnType<typeof getMyReferralCode>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMyReferralCode>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMyReferralCodeQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetReferralStatsUrl = () => {
+
+
+
+
+  return `/api/referrals/stats`
+}
+
+export const getReferralStats = async ( options?: RequestInit): Promise<ReferralStats> => {
+
+  return customFetch<ReferralStats>(getGetReferralStatsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetReferralStatsQueryKey = () => {
+    return [
+    `/api/referrals/stats`
+    ] as const;
+    }
+
+
+export const getGetReferralStatsQueryOptions = <TData = Awaited<ReturnType<typeof getReferralStats>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getReferralStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetReferralStatsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getReferralStats>>> = ({ signal }) => getReferralStats({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getReferralStats>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetReferralStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getReferralStats>>>
+export type GetReferralStatsQueryError = ErrorType<unknown>
+
+
+
+export function useGetReferralStats<TData = Awaited<ReturnType<typeof getReferralStats>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getReferralStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetReferralStatsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getApplyReferralCodeUrl = () => {
+
+
+
+
+  return `/api/referrals/apply`
+}
+
+export const applyReferralCode = async (applyReferralBody: ApplyReferralBody, options?: RequestInit): Promise<ApplyReferralCode200> => {
+
+  return customFetch<ApplyReferralCode200>(getApplyReferralCodeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      applyReferralBody,)
+  }
+);}
+
+
+
+
+export const getApplyReferralCodeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof applyReferralCode>>, TError,{data: BodyType<ApplyReferralBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof applyReferralCode>>, TError,{data: BodyType<ApplyReferralBody>}, TContext> => {
+
+const mutationKey = ['applyReferralCode'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof applyReferralCode>>, {data: BodyType<ApplyReferralBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  applyReferralCode(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApplyReferralCodeMutationResult = NonNullable<Awaited<ReturnType<typeof applyReferralCode>>>
+    export type ApplyReferralCodeMutationBody = BodyType<ApplyReferralBody>
+    export type ApplyReferralCodeMutationError = ErrorType<void>
+
+    export const useApplyReferralCode = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof applyReferralCode>>, TError,{data: BodyType<ApplyReferralBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof applyReferralCode>>,
+        TError,
+        {data: BodyType<ApplyReferralBody>},
+        TContext
+      > => {
+      return useMutation(getApplyReferralCodeMutationOptions(options));
     }
 
 export const getGetLeaderboardUrl = (params?: GetLeaderboardParams,) => {

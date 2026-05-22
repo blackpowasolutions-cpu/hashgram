@@ -17,4 +17,20 @@ export interface RewardConfig {
   inactivityPenaltyPoints: number;
   /** Hours of inactivity before one penalty window triggers */
   inactivityPenaltyHours: number;
+  /** Points awarded to referrer when referred user is still active after 3 days */
+  referralRetention3dPoints: number;
+  /** Points awarded to referrer when referred user is still active after 7 days */
+  referralRetention7dPoints: number;
+  /** Points awarded to referrer when referred user is still active after 14 days */
+  referralRetention14dPoints: number;
+  /** Number of likes the referred user must receive to trigger the likes milestone */
+  referralEngagementLikesThreshold: number;
+  /** Points awarded to referrer when referred user hits the likes threshold */
+  referralEngagementLikesPoints: number;
+  /** Number of posts the referred user must publish to trigger the posts milestone */
+  referralEngagementPostsThreshold: number;
+  /** Points awarded to referrer when referred user hits the posts threshold */
+  referralEngagementPostsPoints: number;
+  /** Points awarded to referrer when referred user reaches Level 5 (12 000+ pts). Set to 0 to disable. */
+  referralEngagementLevel5Points: number;
 }

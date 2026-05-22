@@ -1,4 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
+import { checkAndAwardReferralMilestones } from "./referrals";
 import { eq, sql, and, desc } from "drizzle-orm";
 import { db, usersTable, postsTable, postReactionsTable, pointsLogTable } from "@workspace/db";
 import { ListPostsQueryParams, CreatePostBody, DeletePostParams, ReactToPostParams, ReactToPostBody, RemovePostReactionParams } from "@workspace/api-zod";
@@ -194,6 +195,8 @@ router.post("/posts/:id/react", requireAuth, async (req: Request, res: Response)
         db.insert(pointsLogTable).values({ userId: post.userId, amount: 1, reason: "post_reaction" }),
         db.update(usersTable).set({ points: sql`${usersTable.points} + 1` }).where(eq(usersTable.id, post.userId)),
       ]);
+      // Check if engagement milestones for the post author have unlocked
+      checkAndAwardReferralMilestones(post.userId).catch(() => {});
     }
   }
 
