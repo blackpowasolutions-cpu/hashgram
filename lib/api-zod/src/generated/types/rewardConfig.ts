@@ -13,4 +13,8 @@ export interface RewardConfig {
   postLikesThreshold: number;
   /** Number of reel plays needed before a profile scratch card unlocks */
   reelPlaysThreshold: number;
+  /** Points deducted per inactivity window */
+  inactivityPenaltyPoints: number;
+  /** Hours of inactivity before one penalty window triggers */
+  inactivityPenaltyHours: number;
 }

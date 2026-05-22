@@ -1,10 +1,17 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { eq, desc, gte, sql, and } from "drizzle-orm";
-import { db, usersTable, pointsLogTable } from "@workspace/db";
+import { db, usersTable, pointsLogTable, rewardConfigTable } from "@workspace/db";
 import { GetLeaderboardQueryParams } from "@workspace/api-zod";
 import { getLevel } from "../lib/jwt";
 
 const router: IRouter = Router();
+
+function calcPenalty(lastActiveAt: Date | null | undefined, penaltyPoints: number, penaltyHours: number): number {
+  if (!lastActiveAt || penaltyPoints === 0 || penaltyHours === 0) return 0;
+  const hoursInactive = (Date.now() - lastActiveAt.getTime()) / (1000 * 60 * 60);
+  const windows = Math.floor(hoursInactive / penaltyHours);
+  return windows * penaltyPoints;
+}
 
 router.get("/leaderboard", async (req: Request, res: Response): Promise<void> => {
   const query = GetLeaderboardQueryParams.safeParse(req.query);
@@ -16,6 +23,10 @@ router.get("/leaderboard", async (req: Request, res: Response): Promise<void> =>
   const period = query.data.period ?? "alltime";
   const limit = Math.min(query.data.limit ?? 10, 50);
 
+  const [config] = await db.select().from(rewardConfigTable).limit(1);
+  const penaltyPoints = config?.inactivityPenaltyPoints ?? 100;
+  const penaltyHours = config?.inactivityPenaltyHours ?? 6;
+
   if (period === "alltime") {
     const users = await db
       .select({
@@ -25,6 +36,7 @@ router.get("/leaderboard", async (req: Request, res: Response): Promise<void> =>
         avatarUrl: usersTable.avatarUrl,
         bio: usersTable.bio,
         points: usersTable.points,
+        lastActiveAt: usersTable.lastActiveAt,
       })
       .from(usersTable)
       .where(and(eq(usersTable.isActive, true), sql`${usersTable.role} != 'admin'`))
@@ -32,13 +44,17 @@ router.get("/leaderboard", async (req: Request, res: Response): Promise<void> =>
       .limit(limit);
 
     res.json(
-      users.map((u, i) => ({
-        rank: i + 1,
-        userId: u.id,
-        user: { id: u.id, username: u.username, displayName: u.displayName, avatarUrl: u.avatarUrl, bio: u.bio },
-        points: u.points,
-        level: getLevel(u.points),
-      }))
+      users.map((u, i) => {
+        const penalty = calcPenalty(u.lastActiveAt, penaltyPoints, penaltyHours);
+        return {
+          rank: i + 1,
+          userId: u.id,
+          user: { id: u.id, username: u.username, displayName: u.displayName, avatarUrl: u.avatarUrl, bio: u.bio },
+          points: Math.max(0, u.points - penalty),
+          penaltyPoints: penalty,
+          level: getLevel(u.points),
+        };
+      })
     );
     return;
   }
@@ -78,6 +94,7 @@ router.get("/leaderboard", async (req: Request, res: Response): Promise<void> =>
       avatarUrl: usersTable.avatarUrl,
       bio: usersTable.bio,
       points: usersTable.points,
+      lastActiveAt: usersTable.lastActiveAt,
     })
     .from(usersTable)
     .where(and(
@@ -92,11 +109,14 @@ router.get("/leaderboard", async (req: Request, res: Response): Promise<void> =>
       .filter((p) => userMap.has(p.userId))
       .map((p, i) => {
         const u = userMap.get(p.userId)!;
+        const penalty = calcPenalty(u.lastActiveAt, penaltyPoints, penaltyHours);
+        const gross = p.total ?? 0;
         return {
           rank: i + 1,
           userId: u.id,
           user: { id: u.id, username: u.username, displayName: u.displayName, avatarUrl: u.avatarUrl, bio: u.bio },
-          points: p.total ?? 0,
+          points: Math.max(0, gross - penalty),
+          penaltyPoints: penalty,
           level: getLevel(u.points),
         };
       })

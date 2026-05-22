@@ -12,5 +12,7 @@ export interface LeaderboardEntry {
   userId: number;
   user?: UserPublic;
   points: number;
+  /** Points deducted for inactivity */
+  penaltyPoints?: number;
   level: number;
 }

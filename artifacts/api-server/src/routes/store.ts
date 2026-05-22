@@ -286,13 +286,19 @@ async function getOrCreateRewardConfig() {
   return created!;
 }
 
+function serializeRewardConfig(c: typeof rewardConfigTable.$inferSelect) {
+  return {
+    reelsScrollInterval: c.reelsScrollInterval,
+    postLikesThreshold: c.postLikesThreshold,
+    reelPlaysThreshold: c.reelPlaysThreshold,
+    inactivityPenaltyPoints: c.inactivityPenaltyPoints,
+    inactivityPenaltyHours: c.inactivityPenaltyHours,
+  };
+}
+
 router.get("/store/reward-config", async (req: Request, res: Response): Promise<void> => {
   const config = await getOrCreateRewardConfig();
-  res.json({
-    reelsScrollInterval: config.reelsScrollInterval,
-    postLikesThreshold: config.postLikesThreshold,
-    reelPlaysThreshold: config.reelPlaysThreshold,
-  });
+  res.json(serializeRewardConfig(config));
 });
 
 router.patch("/store/reward-config", requireAdmin, async (req: Request, res: Response): Promise<void> => {
@@ -306,6 +312,8 @@ router.patch("/store/reward-config", requireAdmin, async (req: Request, res: Res
   if (body.data.reelsScrollInterval !== undefined) updates.reelsScrollInterval = body.data.reelsScrollInterval;
   if (body.data.postLikesThreshold !== undefined) updates.postLikesThreshold = body.data.postLikesThreshold;
   if (body.data.reelPlaysThreshold !== undefined) updates.reelPlaysThreshold = body.data.reelPlaysThreshold;
+  if (body.data.inactivityPenaltyPoints !== undefined) updates.inactivityPenaltyPoints = body.data.inactivityPenaltyPoints;
+  if (body.data.inactivityPenaltyHours !== undefined) updates.inactivityPenaltyHours = body.data.inactivityPenaltyHours;
 
   const existing = await getOrCreateRewardConfig();
   const [updated] = await db
@@ -314,11 +322,7 @@ router.patch("/store/reward-config", requireAdmin, async (req: Request, res: Res
     .where(eq(rewardConfigTable.id, existing.id))
     .returning();
 
-  res.json({
-    reelsScrollInterval: updated!.reelsScrollInterval,
-    postLikesThreshold: updated!.postLikesThreshold,
-    reelPlaysThreshold: updated!.reelPlaysThreshold,
-  });
+  res.json(serializeRewardConfig(updated!));
 });
 
 export default router;

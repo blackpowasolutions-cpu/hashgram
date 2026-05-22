@@ -94,12 +94,15 @@ router.post("/auth/login", async (req: Request, res: Response): Promise<void> =>
     )
     .limit(1);
 
+  const now = new Date();
   if (!loginToday) {
     await Promise.all([
       db.insert(pointsLogTable).values({ userId: user.id, amount: 5, reason: "login" }),
-      db.update(usersTable).set({ points: sql`${usersTable.points} + 5` }).where(eq(usersTable.id, user.id)),
+      db.update(usersTable).set({ points: sql`${usersTable.points} + 5`, lastActiveAt: now }).where(eq(usersTable.id, user.id)),
     ]);
     user.points += 5;
+  } else {
+    await db.update(usersTable).set({ lastActiveAt: now }).where(eq(usersTable.id, user.id));
   }
 
   res.json({

@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { eq, sql, and } from "drizzle-orm";
-import { db, usersTable, followsTable, reelsTable, postsTable, pointsLogTable } from "@workspace/db";
+import { db, usersTable, followsTable, reelsTable, postsTable, pointsLogTable, rewardConfigTable } from "@workspace/db";
 import { GetUserParams, UpdateUserParams, UpdateUserBody, DeleteUserParams, FollowUserParams, UnfollowUserParams, GetUserFollowersParams, GetUserFollowingParams, GetUserReelsParams, GetUserPostsParams } from "@workspace/api-zod";
 import { requireAuth, optionalAuth } from "../middlewares/auth";
 
@@ -284,18 +284,36 @@ router.get("/users/:id/posts", async (req: Request, res: Response): Promise<void
 });
 
 router.get("/me/points-breakdown", requireAuth, async (req: Request, res: Response): Promise<void> => {
-  const rows = await db
-    .select({
-      reason: pointsLogTable.reason,
-      total: sql<number>`sum(${pointsLogTable.amount})::int`,
-      count: sql<number>`count(*)::int`,
-    })
-    .from(pointsLogTable)
-    .where(eq(pointsLogTable.userId, req.userId!))
-    .groupBy(pointsLogTable.reason)
-    .orderBy(sql`sum(${pointsLogTable.amount}) desc`);
+  const [rows, userRows, configRows] = await Promise.all([
+    db
+      .select({
+        reason: pointsLogTable.reason,
+        total: sql<number>`sum(${pointsLogTable.amount})::int`,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(pointsLogTable)
+      .where(eq(pointsLogTable.userId, req.userId!))
+      .groupBy(pointsLogTable.reason)
+      .orderBy(sql`sum(${pointsLogTable.amount}) desc`),
+    db.select({ lastActiveAt: usersTable.lastActiveAt }).from(usersTable).where(eq(usersTable.id, req.userId!)).limit(1),
+    db.select().from(rewardConfigTable).limit(1),
+  ]);
 
-  res.json(rows);
+  const lastActiveAt = userRows[0]?.lastActiveAt ?? null;
+  const penaltyPoints = configRows[0]?.inactivityPenaltyPoints ?? 100;
+  const penaltyHours = configRows[0]?.inactivityPenaltyHours ?? 6;
+
+  const result: { reason: string; total: number; count: number }[] = [...rows];
+
+  if (lastActiveAt && penaltyPoints > 0 && penaltyHours > 0) {
+    const hoursInactive = (Date.now() - lastActiveAt.getTime()) / (1000 * 60 * 60);
+    const windows = Math.floor(hoursInactive / penaltyHours);
+    if (windows > 0) {
+      result.push({ reason: "inactivity_penalty", total: -(windows * penaltyPoints), count: windows });
+    }
+  }
+
+  res.json(result);
 });
 
 export default router;

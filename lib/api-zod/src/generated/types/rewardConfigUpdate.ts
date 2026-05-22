@@ -13,4 +13,8 @@ export interface RewardConfigUpdate {
   postLikesThreshold?: number;
   /** @minimum 1 */
   reelPlaysThreshold?: number;
+  /** @minimum 0 */
+  inactivityPenaltyPoints?: number;
+  /** @minimum 1 */
+  inactivityPenaltyHours?: number;
 }

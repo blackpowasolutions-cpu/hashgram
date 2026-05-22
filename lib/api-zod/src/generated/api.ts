@@ -549,11 +549,16 @@ export const AwardPointsResponse = zod.object({
 export const GetRewardConfigResponse = zod.object({
   "reelsScrollInterval": zod.number().describe('Gift card injected into reel feed after every N reels scrolled'),
   "postLikesThreshold": zod.number().describe('Number of post likes needed before the newsfeed scratch card unlocks'),
-  "reelPlaysThreshold": zod.number().describe('Number of reel plays needed before a profile scratch card unlocks')
+  "reelPlaysThreshold": zod.number().describe('Number of reel plays needed before a profile scratch card unlocks'),
+  "inactivityPenaltyPoints": zod.number().describe('Points deducted per inactivity window'),
+  "inactivityPenaltyHours": zod.number().describe('Hours of inactivity before one penalty window triggers')
 })
 
 
 
+
+
+export const updateRewardConfigBodyInactivityPenaltyPointsMin = 0;
 
 
 
@@ -561,13 +566,17 @@ export const GetRewardConfigResponse = zod.object({
 export const UpdateRewardConfigBody = zod.object({
   "reelsScrollInterval": zod.number().min(1).optional(),
   "postLikesThreshold": zod.number().min(1).optional(),
-  "reelPlaysThreshold": zod.number().min(1).optional()
+  "reelPlaysThreshold": zod.number().min(1).optional(),
+  "inactivityPenaltyPoints": zod.number().min(updateRewardConfigBodyInactivityPenaltyPointsMin).optional(),
+  "inactivityPenaltyHours": zod.number().min(1).optional()
 })
 
 export const UpdateRewardConfigResponse = zod.object({
   "reelsScrollInterval": zod.number().describe('Gift card injected into reel feed after every N reels scrolled'),
   "postLikesThreshold": zod.number().describe('Number of post likes needed before the newsfeed scratch card unlocks'),
-  "reelPlaysThreshold": zod.number().describe('Number of reel plays needed before a profile scratch card unlocks')
+  "reelPlaysThreshold": zod.number().describe('Number of reel plays needed before a profile scratch card unlocks'),
+  "inactivityPenaltyPoints": zod.number().describe('Points deducted per inactivity window'),
+  "inactivityPenaltyHours": zod.number().describe('Hours of inactivity before one penalty window triggers')
 })
 
 
@@ -590,6 +599,7 @@ export const GetLeaderboardResponseItem = zod.object({
   "bio": zod.string().nullish()
 }).optional(),
   "points": zod.number(),
+  "penaltyPoints": zod.number().optional().describe('Points deducted for inactivity'),
   "level": zod.number()
 })
 export const GetLeaderboardResponse = zod.array(GetLeaderboardResponseItem)
@@ -665,6 +675,7 @@ export const GetAdminStatsResponse = zod.object({
   "bio": zod.string().nullish()
 }).optional(),
   "points": zod.number(),
+  "penaltyPoints": zod.number().optional().describe('Points deducted for inactivity'),
   "level": zod.number()
 })).optional()
 })

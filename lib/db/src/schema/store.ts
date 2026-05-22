@@ -65,6 +65,8 @@ export const rewardConfigTable = pgTable("reward_config", {
   reelsScrollInterval: integer("reels_scroll_interval").notNull().default(4),
   postLikesThreshold: integer("post_likes_threshold").notNull().default(100),
   reelPlaysThreshold: integer("reel_plays_threshold").notNull().default(100),
+  inactivityPenaltyPoints: integer("inactivity_penalty_points").notNull().default(100),
+  inactivityPenaltyHours: integer("inactivity_penalty_hours").notNull().default(6),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 

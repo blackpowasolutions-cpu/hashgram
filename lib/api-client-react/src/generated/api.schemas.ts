@@ -295,6 +295,8 @@ export interface LeaderboardEntry {
   userId: number;
   user?: UserPublic;
   points: number;
+  /** Points deducted for inactivity */
+  penaltyPoints?: number;
   level: number;
 }
 
@@ -396,6 +398,10 @@ export interface RewardConfig {
   postLikesThreshold: number;
   /** Number of reel plays needed before a profile scratch card unlocks */
   reelPlaysThreshold: number;
+  /** Points deducted per inactivity window */
+  inactivityPenaltyPoints: number;
+  /** Hours of inactivity before one penalty window triggers */
+  inactivityPenaltyHours: number;
 }
 
 export interface RewardConfigUpdate {
@@ -405,6 +411,10 @@ export interface RewardConfigUpdate {
   postLikesThreshold?: number;
   /** @minimum 1 */
   reelPlaysThreshold?: number;
+  /** @minimum 0 */
+  inactivityPenaltyPoints?: number;
+  /** @minimum 1 */
+  inactivityPenaltyHours?: number;
 }
 
 export type ListReelsParams = {

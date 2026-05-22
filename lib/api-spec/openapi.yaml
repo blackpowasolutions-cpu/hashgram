@@ -1515,6 +1515,9 @@ components:
           $ref: "#/components/schemas/UserPublic"
         points:
           type: integer
+        penaltyPoints:
+          type: integer
+          description: Points deducted for inactivity
         level:
           type: integer
 
@@ -1677,7 +1680,7 @@ components:
     # ── Reward Config ──────────────────────────────────────────────────────────
     RewardConfig:
       type: object
-      required: [reelsScrollInterval, postLikesThreshold, reelPlaysThreshold]
+      required: [reelsScrollInterval, postLikesThreshold, reelPlaysThreshold, inactivityPenaltyPoints, inactivityPenaltyHours]
       properties:
         reelsScrollInterval:
           type: integer
@@ -1688,6 +1691,12 @@ components:
         reelPlaysThreshold:
           type: integer
           description: Number of reel plays needed before a profile scratch card unlocks
+        inactivityPenaltyPoints:
+          type: integer
+          description: Points deducted per inactivity window
+        inactivityPenaltyHours:
+          type: integer
+          description: Hours of inactivity before one penalty window triggers
 
     RewardConfigUpdate:
       type: object
@@ -1699,6 +1708,12 @@ components:
           type: integer
           minimum: 1
         reelPlaysThreshold:
+          type: integer
+          minimum: 1
+        inactivityPenaltyPoints:
+          type: integer
+          minimum: 0
+        inactivityPenaltyHours:
           type: integer
           minimum: 1
 

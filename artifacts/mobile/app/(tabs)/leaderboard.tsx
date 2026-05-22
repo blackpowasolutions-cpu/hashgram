@@ -29,6 +29,7 @@ interface ApiLeaderboardEntry {
   userId: number;
   user: { id: number; username: string; displayName: string; avatarUrl: string | null };
   points: number;
+  penaltyPoints?: number;
   level: number;
 }
 
@@ -39,6 +40,7 @@ interface RankedUser {
   displayName: string;
   avatarColor: string;
   points: number;
+  penaltyPoints?: number;
 }
 
 const AVATAR_COLORS = [
@@ -116,14 +118,15 @@ const METRICS: { key: string; label: string; icon: string; pts: number }[] = [
 ];
 
 const REASON_META: Record<string, { label: string; icon: string; color: string }> = {
-  login:          { label: "Daily Login",         icon: "log-in",         color: "#F9C74F" },
-  reel_play:      { label: "Reels Played",        icon: "play",           color: "#4D96FF" },
-  reel_like:      { label: "Likes Received",      icon: "heart",          color: "#FE2C55" },
-  post_reaction:  { label: "Reactions Received",  icon: "smile",          color: "#C77DFF" },
-  reel_upload:    { label: "Reels Uploaded",      icon: "video",          color: "#6BCB77" },
-  profile_visit:  { label: "Profile Visits",      icon: "user",           color: "#25F4EE" },
-  post_share:     { label: "Posts Shared",        icon: "share-2",        color: "#FF8C42" },
-  gift_purchase:  { label: "Gift Purchased",      icon: "gift",           color: "#90BE6D" },
+  login:              { label: "Daily Login",         icon: "log-in",         color: "#F9C74F" },
+  reel_play:          { label: "Reels Played",        icon: "play",           color: "#4D96FF" },
+  reel_like:          { label: "Likes Received",      icon: "heart",          color: "#FE2C55" },
+  post_reaction:      { label: "Reactions Received",  icon: "smile",          color: "#C77DFF" },
+  reel_upload:        { label: "Reels Uploaded",      icon: "video",          color: "#6BCB77" },
+  profile_visit:      { label: "Profile Visits",      icon: "user",           color: "#25F4EE" },
+  post_share:         { label: "Posts Shared",        icon: "share-2",        color: "#FF8C42" },
+  gift_purchase:      { label: "Gift Purchased",      icon: "gift",           color: "#90BE6D" },
+  inactivity_penalty: { label: "Inactivity Penalty",  icon: "alert-triangle", color: "#FF4444" },
 };
 
 interface BreakdownRow { reason: string; total: number; count: number; }
@@ -202,6 +205,7 @@ export default function LeaderboardScreen() {
     displayName: e.user?.displayName ?? "",
     avatarColor: AVATAR_COLORS[i % AVATAR_COLORS.length],
     points: String(e.userId) === user?.id ? userPoints : e.points,
+    penaltyPoints: e.penaltyPoints,
   }));
 
   const top3 = rankedUsers.slice(0, 3);
@@ -374,6 +378,15 @@ export default function LeaderboardScreen() {
                           {formatPoints(u.points)}
                         </Text>
                       </View>
+                      {!!u.penaltyPoints && u.penaltyPoints > 0 && (
+                        <View style={[styles.breakdownItem, { backgroundColor: "#FF444418", borderColor: "#FF444440" }]}>
+                          <Feather name="alert-triangle" size={12} color="#FF4444" />
+                          <Text style={[styles.breakdownLabel, { color: "#FF4444" }]}>Inactivity Penalty</Text>
+                          <Text style={[styles.breakdownValue, { color: "#FF4444" }]}>
+                            -{formatPoints(u.penaltyPoints)}
+                          </Text>
+                        </View>
+                      )}
                     </View>
                   </View>
                 )}
@@ -402,14 +415,17 @@ export default function LeaderboardScreen() {
             ) : (
               breakdown.map((row) => {
                 const meta = REASON_META[row.reason] ?? { label: row.reason, icon: "star", color: "#aaa" };
+                const isPenalty = row.total < 0;
                 return (
                   <View key={row.reason} style={[styles.breakdownRow, { borderBottomColor: colors.border }]}>
                     <View style={[styles.breakdownIcon, { backgroundColor: meta.color + "22" }]}>
                       <Feather name={meta.icon as any} size={13} color={meta.color} />
                     </View>
-                    <Text style={[styles.breakdownRowLabel, { color: colors.foreground }]}>{meta.label}</Text>
+                    <Text style={[styles.breakdownRowLabel, { color: isPenalty ? "#FF4444" : colors.foreground }]}>{meta.label}</Text>
                     <Text style={[styles.breakdownRowCount, { color: colors.mutedForeground }]}>×{row.count}</Text>
-                    <Text style={[styles.breakdownRowPts, { color: "#FE2C55" }]}>+{formatPoints(row.total)} pts</Text>
+                    <Text style={[styles.breakdownRowPts, { color: isPenalty ? "#FF4444" : "#FE2C55" }]}>
+                      {isPenalty ? `-${formatPoints(Math.abs(row.total))}` : `+${formatPoints(row.total)}`} pts
+                    </Text>
                   </View>
                 );
               })

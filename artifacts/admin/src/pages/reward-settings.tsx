@@ -17,6 +17,16 @@ type ConfigForm = {
   reelsScrollInterval: number;
   postLikesThreshold: number;
   reelPlaysThreshold: number;
+  inactivityPenaltyPoints: number;
+  inactivityPenaltyHours: number;
+};
+
+const DEFAULTS: ConfigForm = {
+  reelsScrollInterval: 4,
+  postLikesThreshold: 100,
+  reelPlaysThreshold: 100,
+  inactivityPenaltyPoints: 100,
+  inactivityPenaltyHours: 6,
 };
 
 export default function RewardSettings() {
@@ -25,11 +35,7 @@ export default function RewardSettings() {
   const { toast } = useToast();
   const updateMutation = useUpdateRewardConfig();
 
-  const [form, setForm] = useState<ConfigForm>({
-    reelsScrollInterval: 4,
-    postLikesThreshold: 100,
-    reelPlaysThreshold: 100,
-  });
+  const [form, setForm] = useState<ConfigForm>(DEFAULTS);
 
   useEffect(() => {
     if (config) {
@@ -37,13 +43,15 @@ export default function RewardSettings() {
         reelsScrollInterval: config.reelsScrollInterval,
         postLikesThreshold: config.postLikesThreshold,
         reelPlaysThreshold: config.reelPlaysThreshold,
+        inactivityPenaltyPoints: config.inactivityPenaltyPoints,
+        inactivityPenaltyHours: config.inactivityPenaltyHours,
       });
     }
   }, [config]);
 
-  const handleChange = (field: keyof ConfigForm, value: string) => {
+  const handleChange = (field: keyof ConfigForm, value: string, min = 1) => {
     const num = parseInt(value, 10);
-    if (!isNaN(num) && num >= 1) {
+    if (!isNaN(num) && num >= min) {
       setForm((prev) => ({ ...prev, [field]: num }));
     }
   };
@@ -54,7 +62,7 @@ export default function RewardSettings() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetRewardConfigQueryKey() });
-          toast({ title: "Saved", description: "Reward thresholds updated successfully." });
+          toast({ title: "Saved", description: "Reward settings updated successfully." });
         },
         onError: () => {
           toast({ title: "Error", description: "Failed to save reward settings.", variant: "destructive" });
@@ -67,7 +75,9 @@ export default function RewardSettings() {
     config &&
     (form.reelsScrollInterval !== config.reelsScrollInterval ||
       form.postLikesThreshold !== config.postLikesThreshold ||
-      form.reelPlaysThreshold !== config.reelPlaysThreshold);
+      form.reelPlaysThreshold !== config.reelPlaysThreshold ||
+      form.inactivityPenaltyPoints !== config.inactivityPenaltyPoints ||
+      form.inactivityPenaltyHours !== config.inactivityPenaltyHours);
 
   return (
     <AdminLayout>
@@ -77,7 +87,7 @@ export default function RewardSettings() {
           <div>
             <h1 className="text-2xl font-bold">Reward Settings</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Configure the thresholds that trigger each reward type in the mobile app.
+              Configure reward thresholds and inactivity penalties for the mobile app.
             </p>
           </div>
         </div>
@@ -165,6 +175,53 @@ export default function RewardSettings() {
               </CardContent>
             </Card>
 
+            <Card className="border-border bg-card border-orange-500/30">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <span className="inline-block w-2 h-2 rounded-full bg-orange-500" />
+                  Inactivity Penalty
+                </CardTitle>
+                <CardDescription>
+                  Deduct points from users who haven't been active for a set period. Set penalty to 0 to disable.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="inactivityPenaltyPoints">Points deducted</Label>
+                    <Input
+                      id="inactivityPenaltyPoints"
+                      type="number"
+                      min={0}
+                      value={form.inactivityPenaltyPoints}
+                      onChange={(e) => handleChange("inactivityPenaltyPoints", e.target.value, 0)}
+                      className="w-32"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Current: <strong>{config?.inactivityPenaltyPoints}</strong> pts per window
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="inactivityPenaltyHours">Window (hours)</Label>
+                    <Input
+                      id="inactivityPenaltyHours"
+                      type="number"
+                      min={1}
+                      value={form.inactivityPenaltyHours}
+                      onChange={(e) => handleChange("inactivityPenaltyHours", e.target.value)}
+                      className="w-32"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Current: every <strong>{config?.inactivityPenaltyHours}</strong> h of inactivity
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-3 bg-muted rounded px-3 py-2">
+                  Example: {form.inactivityPenaltyPoints} pts deducted per {form.inactivityPenaltyHours} h of inactivity — after 24 h offline that's {Math.floor(24 / form.inactivityPenaltyHours) * form.inactivityPenaltyPoints} pts lost.
+                </p>
+              </CardContent>
+            </Card>
+
             <div className="flex items-center gap-3 pt-1">
               <Button
                 onClick={handleSave}
@@ -181,6 +238,8 @@ export default function RewardSettings() {
                     reelsScrollInterval: config.reelsScrollInterval,
                     postLikesThreshold: config.postLikesThreshold,
                     reelPlaysThreshold: config.reelPlaysThreshold,
+                    inactivityPenaltyPoints: config.inactivityPenaltyPoints,
+                    inactivityPenaltyHours: config.inactivityPenaltyHours,
                   })}
                   className="text-muted-foreground"
                 >
