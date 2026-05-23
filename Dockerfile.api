@@ -4,13 +4,9 @@ WORKDIR /workspace
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# Workspace manifests (allows pnpm to resolve the monorepo)
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
-COPY tsconfig.base.json tsconfig.json ./
-
-# Only copy packages required for the API build
-COPY lib/ lib/
-COPY artifacts/api-server/ artifacts/api-server/
+# Copy the entire workspace so pnpm can resolve all packages in pnpm-workspace.yaml.
+# node_modules and dist are excluded by .dockerignore.
+COPY . .
 
 # Install all workspace dependencies
 RUN pnpm install --frozen-lockfile
@@ -25,7 +21,7 @@ RUN pnpm --filter @workspace/api-server run build
 FROM node:24-alpine AS runtime
 WORKDIR /app
 
-# The esbuild bundle is fully self-contained — no node_modules required
+# The esbuild bundle is fully self-contained — no node_modules required at runtime
 COPY --from=builder /workspace/artifacts/api-server/dist ./dist
 
 ENV NODE_ENV=production

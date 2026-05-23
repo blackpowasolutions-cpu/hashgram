@@ -5,9 +5,9 @@ WORKDIR /workspace
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
-COPY tsconfig.base.json tsconfig.json ./
-COPY lib/ lib/
+# Copy the entire workspace so pnpm can resolve all packages in pnpm-workspace.yaml.
+# node_modules and dist are excluded by .dockerignore.
+COPY . .
 
 RUN pnpm install --frozen-lockfile
 
