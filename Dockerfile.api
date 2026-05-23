@@ -1,0 +1,34 @@
+# ─── Stage 1: Build ────────────────────────────────────────────────────────────
+FROM node:24-alpine AS builder
+WORKDIR /workspace
+
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Workspace manifests (allows pnpm to resolve the monorepo)
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY tsconfig.base.json tsconfig.json ./
+
+# Only copy packages required for the API build
+COPY lib/ lib/
+COPY artifacts/api-server/ artifacts/api-server/
+
+# Install all workspace dependencies
+RUN pnpm install --frozen-lockfile
+
+# Build composite lib packages (db, api-zod, api-client-react types)
+RUN pnpm run typecheck:libs
+
+# Bundle the API server into a single ESM file via esbuild
+RUN pnpm --filter @workspace/api-server run build
+
+# ─── Stage 2: Runtime ──────────────────────────────────────────────────────────
+FROM node:24-alpine AS runtime
+WORKDIR /app
+
+# The esbuild bundle is fully self-contained — no node_modules required
+COPY --from=builder /workspace/artifacts/api-server/dist ./dist
+
+ENV NODE_ENV=production
+EXPOSE 3001
+
+CMD ["node", "--enable-source-maps", "dist/index.mjs"]

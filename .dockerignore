@@ -1,0 +1,26 @@
+node_modules
+**/node_modules
+
+# Build outputs (re-created inside the image)
+**/dist
+!artifacts/api-server/dist
+
+# Replit / editor artefacts
+.git
+.local
+.replit
+replit.nix
+attached_assets
+
+# Env files (passed via docker-compose env_file, never baked in)
+.env
+.env.*
+!.env.example
+
+# Artifacts not needed for the admin / API build
+artifacts/mobile
+artifacts/mockup-sandbox
+
+# Logs
+*.log
+npm-debug.log*

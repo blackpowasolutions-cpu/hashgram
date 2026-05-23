@@ -1,0 +1,31 @@
+# ─── Stage 1: Build ────────────────────────────────────────────────────────────
+FROM node:24-alpine AS builder
+WORKDIR /workspace
+
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY tsconfig.base.json tsconfig.json ./
+
+# Only copy packages required for the admin build
+COPY lib/ lib/
+COPY artifacts/admin/ artifacts/admin/
+
+RUN pnpm install --frozen-lockfile
+
+# Build composite lib packages the admin depends on
+RUN pnpm run typecheck:libs
+
+# Build the Vite SPA — BASE_PATH=/ for a root-mounted self-hosted deployment
+ENV BASE_PATH=/
+ENV NODE_ENV=production
+RUN pnpm --filter @workspace/admin run build
+
+# ─── Stage 2: Serve ────────────────────────────────────────────────────────────
+FROM nginx:stable-alpine AS serve
+
+COPY --from=builder /workspace/artifacts/admin/dist/public /usr/share/nginx/html
+COPY artifacts/admin/nginx.selfhost.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

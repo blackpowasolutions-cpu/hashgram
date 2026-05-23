@@ -1,0 +1,62 @@
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER:-hashgram}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB:       ${POSTGRES_DB:-hashgram}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hashgram} -d ${POSTGRES_DB:-hashgram}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ── DB migrations (run once, then exits) ────────────────────────────────────
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.migrate
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # ── API server ──────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: "3001"
+      NODE_ENV: production
+    volumes:
+      - uploads_data:/data/uploads
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    # Not exposed to the internet directly — nginx proxies /api traffic
+    expose:
+      - "3001"
+
+  # ── Admin panel (nginx + static SPA) ────────────────────────────────────────
+  admin:
+    build:
+      context: .
+      dockerfile: Dockerfile.admin
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"       # HTTP — put a reverse-proxy / certbot in front for HTTPS
+
+volumes:
+  postgres_data:
+  uploads_data:
